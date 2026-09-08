@@ -118,6 +118,23 @@ const predictedVersion = await predictNextVersion(process.cwd(), releaseRules, a
 const identity = resolvePredictedIdentity(build, predictedVersion);
 ```
 
+## `readPackageVersion(repoRoot)`
+
+```ts
+function readPackageVersion(repoRoot: string): string;
+```
+
+The plain `"version"` field from `package.json` at `repoRoot`, read unconditionally and with no git access at all. This is deliberately not the same thing as `resolveBuildIdentity(...).version`, which is a build *identity* -- the released version only when a tag genuinely points at HEAD, and a short commit hash otherwise. Reach for this one when you want the last released semantic version regardless of whether this checkout happens to be sitting on its tag: an OpenAPI document's `info.version`, a user agent string, anything wanting a stable semver rather than an honest answer about what is deployed.
+
+Throws rather than defaulting when `package.json` is missing or its `"version"` is absent, non-string, or empty -- the same stance every other export in this package takes. `defaultTagName` (`v${version}`) is the shared convention `resolveBuildIdentity` and `predictNextVersion` both apply to this value.
+
+```ts
+import { readPackageVersion, resolveBuildIdentity } from '@exadev/build-identity';
+
+const appVersion = readPackageVersion(process.cwd()); // "1.4.0", tagged or not
+const build = resolveBuildIdentity(process.cwd(), 'exadev/example'); // "1.4.0" or "a1b2c3d"
+```
+
 ## `build-identity` (CLI)
 
 The same three functions, wired together, as a command. It exists for build and deploy steps that are a shell invocation rather than a JavaScript config file, so nothing in them can `import` this package at all -- `wrangler deploy --var RELEASE_VERSION:...` being the case it was built for. A step that *is* a JavaScript config file (`next.config.ts`, `vite.config.ts`) should import the functions directly instead; see [Framework-agnosticism](#framework-agnosticism) below.
