@@ -50,22 +50,69 @@ interface ResolveBuildIdentityOptions {
 ## `resolvePredictedIdentity(build, predictedVersion)`
 
 ```ts
-function resolvePredictedIdentity(build: BuildIdentity, predictedVersion: string | undefined): BuildIdentity & { predicted?: boolean };
+type DisplayIdentity = { kind: 'release' | 'predicted' | 'commit'; version: string; url: string; date: string; commit: string };
+
+function resolvePredictedIdentity(build: BuildIdentity, predictedVersion: string | undefined): DisplayIdentity;
 ```
 
-An unreleased build's `version` is a short commit hash, which isn't always what you want to show a user -- often what's actually useful is *the version this commit will become once it releases*. This function lets a caller upgrade the displayed label to a predicted version (e.g. computed by running a commit-analyzer-style tool such as `semantic-release`'s own dry-run mode) without ever upgrading the URL to a release page that doesn't exist yet:
+An unreleased build's `version` is a short commit hash, which isn't always what you want to show a user -- often what's actually useful is *the version this commit will become once it releases*. This function lets a caller upgrade the displayed label to a predicted version (e.g. computed by `predictNextVersion`, below, or `semantic-release`'s own dry-run mode) without ever upgrading the URL to a release page that doesn't exist yet:
 
 - If `build.kind === 'release'`, it is returned **completely unchanged** -- a confirmed release always wins outright, prediction or not.
-- Otherwise, when `predictedVersion` is a real, non-empty string, the result's `version` becomes that (trimmed) prediction, `predicted` becomes `true`, and `url`/`date` are copied verbatim from `build` -- the link still points at the real commit.
+- Otherwise, when `predictedVersion` is a real, non-empty string, the result is `kind: 'predicted'` with `version` set to that (trimmed) prediction -- `url`/`date`/`commit` are copied verbatim from `build`, still describing the real commit.
 - With no usable prediction (`undefined`, empty, or whitespace-only), `build` is returned unchanged.
 
 This function does no git or filesystem access of its own -- computing the predicted version is entirely the caller's job, kept deliberately out of this package's core so the one property `resolveBuildIdentity` guarantees stays easy to audit on its own.
 
 ```ts
-import { resolveBuildIdentity, resolvePredictedIdentity } from '@exadev/build-identity';
+import { resolveBuildIdentity, resolvePredictedIdentity, predictNextVersion, loadCommitAnalyzer } from '@exadev/build-identity';
 
 const build = resolveBuildIdentity(process.cwd(), 'exadev/build-identity');
-const predictedVersion = await computeNextVersionSomehow(); // out of scope for this package
+const predictedVersion = await predictNextVersion(process.cwd(), releaseRules, await loadCommitAnalyzer());
+const identity = resolvePredictedIdentity(build, predictedVersion);
+```
+
+## `predictNextVersion(repoRoot, releaseRules, analyzeCommits, options?)`
+
+```ts
+type ReleaseLevel = 'major' | 'minor' | 'patch';
+type ReleaseRule = { type: string; release: ReleaseLevel | false } | { breaking: true; release: ReleaseLevel | false };
+type AnalyzeCommits = (pluginConfig: unknown, context: unknown) => Promise<unknown>;
+
+function predictNextVersion(repoRoot: string, releaseRules: readonly ReleaseRule[], analyzeCommits: AnalyzeCommits, options?: PredictNextVersionOptions): Promise<string | undefined>;
+
+interface PredictNextVersionOptions {
+  tagName?: (version: string) => string; // matches resolveBuildIdentity's own option of the same name
+  logger?: { log: (...args: unknown[]) => void; error: (...args: unknown[]) => void }; // defaults to discarding
+}
+```
+
+Predicts the version a repo's next release would be, from the commits since its last tagged release -- **without** running `semantic-release`'s own top-level orchestrator. That orchestrator verifies push access to the remote as part of resolving branches before analysis ever runs, on every call, dry-run or not -- slow, and needing credentials a prediction has no real reason to hold. `predictNextVersion` instead calls `@semantic-release/commit-analyzer`'s own `analyzeCommits` hook directly: no network, no registry lookups, no push check.
+
+`releaseRules` is your own repo's commit-type-to-release-level convention (the same shape `@semantic-release/commit-analyzer`'s own `releaseRules` option takes) -- this package hardcodes none of its own.
+
+Returns `undefined` when there is genuinely no predicted release -- no commits since the last tag, or none of them are release-worthy -- the same "nothing to report" case `resolvePredictedIdentity` already treats as valid, not an error. Throws for a genuine setup problem instead of defaulting: `repoRoot` isn't a git repository, or `package.json` has no usable version.
+
+**`analyzeCommits`** is supplied by the caller rather than imported by this package: `@semantic-release/commit-analyzer` ships no type declarations and `analyzeCommits` isn't part of its documented public API, so loading it safely is a concern specific to your own toolchain. `predictNextVersion` itself stays a pure function of its arguments -- easy to test with a fake analyzer.
+
+## `loadCommitAnalyzer()`
+
+```ts
+function loadCommitAnalyzer(): Promise<AnalyzeCommits>;
+```
+
+The tested, correct way to obtain a real `analyzeCommits` for `predictNextVersion` above -- the one place in this package that actually loads `@semantic-release/commit-analyzer`. `@semantic-release/commit-analyzer` is an **optional peer dependency**: install it yourself if you use this function (or `predictNextVersion`); every other export in this package works without it. Throws a clear error, rather than a bare "Cannot find module", when it isn't installed or doesn't export `analyzeCommits`.
+
+```ts
+import { resolveBuildIdentity, resolvePredictedIdentity, predictNextVersion, loadCommitAnalyzer } from '@exadev/build-identity';
+
+const releaseRules = [
+  { breaking: true, release: 'major' },
+  { type: 'feat', release: 'minor' },
+  { type: 'fix', release: 'patch' },
+];
+
+const build = resolveBuildIdentity(process.cwd(), 'exadev/build-identity');
+const predictedVersion = await predictNextVersion(process.cwd(), releaseRules, await loadCommitAnalyzer());
 const identity = resolvePredictedIdentity(build, predictedVersion);
 ```
 
@@ -111,7 +158,7 @@ export default defineConfig({
 });
 ```
 
-Either way, the values are inlined at build time -- the running app never shells out to git itself, and `resolveBuildIdentity`/`resolvePredictedIdentity` never ship as part of the app's own bundle.
+Either way, the values are inlined at build time -- the running app never shells out to git itself, and `resolveBuildIdentity`/`resolvePredictedIdentity`/`predictNextVersion`/`loadCommitAnalyzer` never ship as part of the app's own bundle.
 
 ## Conventions
 

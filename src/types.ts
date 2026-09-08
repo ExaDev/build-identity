@@ -33,3 +33,14 @@ export interface ResolveBuildIdentityOptions {
    */
   readonly tagName?: (version: string) => string;
 }
+
+/**
+ * What a build should actually display -- `BuildIdentity` refined by an optional prediction (`resolvePredictedIdentity`). All three kinds carry the identical field set; only the meaning of `kind`/`version` differs: `'release'` and `'commit'` mean exactly what they do on `BuildIdentity` (a confirmed release always wins outright, unchanged), and `'predicted'` means "not yet released, but a commit-analyzer-style tool predicts this commit will become `version` once it is" -- `url`/`date`/`commit` still describe the real underlying commit, never a release page that doesn't exist yet.
+ */
+export interface DisplayIdentity {
+  readonly kind: 'release' | 'predicted' | 'commit';
+  readonly version: string;
+  readonly url: string;
+  readonly date: string;
+  readonly commit: string;
+}
