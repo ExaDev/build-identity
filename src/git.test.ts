@@ -14,7 +14,7 @@ describe('getHeadCommit', () => {
     repo = undefined;
   });
 
-  it('reads the full sha, short sha, and ISO committer date of HEAD', () => {
+  it('reads the full sha, short sha, and ISO author date of HEAD', () => {
     repo = createTestRepo();
     const head = getHeadCommit(repo.root);
     const expectedFullSha = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repo.root, encoding: 'utf8' }).trim();
@@ -23,6 +23,29 @@ describe('getHeadCommit', () => {
     expect(expectedFullSha.startsWith(head.shortSha)).toBe(true);
     expect(head.shortSha.length).toBeLessThan(head.fullSha.length);
     expect(head.date).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
+  });
+
+  it('reports the author date, not the committer date, when a rebase has moved the two apart', () => {
+    repo = createTestRepo();
+    const originalAuthorDate = execFileSync('git', ['log', '-1', '--format=%aI', 'HEAD'], {
+      cwd: repo.root,
+      encoding: 'utf8',
+    }).trim();
+
+    // Simulate what a rebase does to a picked commit: the author date stays fixed, but the committer date jumps to whenever the rebase actually ran -- here, 45 minutes later.
+    const rebasedCommitterDate = '2026-09-08T11:07:00+01:00';
+    repo.setCommitterDate(rebasedCommitterDate);
+
+    const rebasedCommitterDateActual = execFileSync('git', ['log', '-1', '--format=%cI', 'HEAD'], {
+      cwd: repo.root,
+      encoding: 'utf8',
+    }).trim();
+    // Sanity-check the fixture itself: if this ever fails, the test below would pass for the wrong reason (author and committer date coincidentally still equal).
+    expect(rebasedCommitterDateActual).not.toBe(originalAuthorDate);
+
+    const head = getHeadCommit(repo.root);
+    expect(head.date).toBe(originalAuthorDate);
+    expect(head.date).not.toBe(rebasedCommitterDateActual);
   });
 
   it('throws rather than inventing a commit identity when the directory is not a git repository', () => {

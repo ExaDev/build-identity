@@ -10,12 +10,18 @@ export interface TestRepo {
   commit: (message?: string) => string;
   /** Tags the current HEAD. */
   tag: (name: string) => void;
+  /** Amends HEAD in place with a new committer date, leaving the author date (identity and timestamp) untouched -- the same shape a rebase produces. Returns the resulting (unchanged) commit SHA. */
+  setCommitterDate: (isoDate: string) => string;
   /** Removes the working tree from disk. Always call this, even when a test fails. */
   cleanup: () => void;
 }
 
-function git(root: string, args: readonly string[]): string {
-  return execFileSync('git', args, { cwd: root, encoding: 'utf8' }).trim();
+function git(root: string, args: readonly string[], env?: Record<string, string>): string {
+  return execFileSync('git', args, {
+    cwd: root,
+    encoding: 'utf8',
+    ...(env ? { env: { ...process.env, ...env } } : {}),
+  }).trim();
 }
 
 /**
@@ -44,6 +50,11 @@ export function createTestRepo(packageJson: Record<string, unknown> = { name: 'f
     tag(name: string) {
       // -c tag.gpgSign=false: this machine's global git config signs every tag by default, which needs a GPG agent and turns a plain lightweight tag into an annotated one requiring a message -- neither of which a disposable test fixture should depend on.
       git(root, ['-c', 'tag.gpgSign=false', 'tag', name]);
+    },
+    setCommitterDate(isoDate: string) {
+      // --no-edit keeps the message; omitting --reset-author keeps the original author identity and author date. Only GIT_COMMITTER_DATE moves, exactly what a rebase does to a picked commit.
+      git(root, ['commit', '--amend', '--no-edit', '--no-gpg-sign'], { GIT_COMMITTER_DATE: isoDate });
+      return git(root, ['rev-parse', 'HEAD']);
     },
     cleanup() {
       rmSync(root, { recursive: true, force: true });
