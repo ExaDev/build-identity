@@ -39,12 +39,21 @@
     "type": "git",
     "url": "git+https://github.com/ExaDev/build-identity.git"
   },
+  "peerDependencies": {
+    "@semantic-release/commit-analyzer": "^13.0.1"
+  },
+  "peerDependenciesMeta": {
+    "@semantic-release/commit-analyzer": {
+      "optional": true
+    }
+  },
   "devDependencies": {
     "@arethetypeswrong/cli": "0.18.5",
     "@commitlint/cli": "21.2.1",
     "@commitlint/config-conventional": "21.2.0",
     "@exadev/eslint-config": "^2.10.4",
     "@semantic-release/changelog": "7.0.0",
+    "@semantic-release/commit-analyzer": "13.0.1",
     "@semantic-release/git": "11.0.1",
     "@types/node": "24.13.3",
     "@vitest/coverage-v8": "4.1.10",

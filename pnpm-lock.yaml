@@ -41,6 +41,9 @@ importers:
       '@semantic-release/changelog':
         specifier: 7.0.0
         version: 7.0.0(semantic-release@25.0.8(typescript@6.0.3))
+      '@semantic-release/commit-analyzer':
+        specifier: 13.0.1
+        version: 13.0.1(semantic-release@25.0.8(typescript@6.0.3))
       '@semantic-release/git':
         specifier: 11.0.1
         version: 11.0.1(semantic-release@25.0.8(typescript@6.0.3))
