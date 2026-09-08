@@ -26,12 +26,11 @@ describe('resolvePredictedIdentity', () => {
   it('upgrades the displayed version for an unreleased build while keeping its commit URL', () => {
     const result = resolvePredictedIdentity(commit, '1.5.0');
     expect(result).toEqual({
-      kind: 'commit',
+      kind: 'predicted',
       version: '1.5.0',
       url: commit.url,
       date: commit.date,
       commit: commit.commit,
-      predicted: true,
     });
   });
 
