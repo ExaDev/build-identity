@@ -18,17 +18,17 @@ pnpm add -D @exadev/build-identity
 import { resolveBuildIdentity } from '@exadev/build-identity';
 
 const identity = resolveBuildIdentity(process.cwd(), 'exadev/build-identity');
-// { kind: 'release', version: '1.4.0', url: 'https://github.com/exadev/build-identity/releases/tag/v1.4.0', date: '2026-09-08T09:12:03+01:00' }
+// { kind: 'release', version: '1.4.0', url: 'https://github.com/exadev/build-identity/releases/tag/v1.4.0', date: '2026-09-08T09:12:03+01:00', commit: 'a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2' }
 // or, on any commit that isn't itself tagged:
-// { kind: 'commit', version: 'a1b2c3d', url: 'https://github.com/exadev/build-identity/commit/a1b2c3d4e5f6...', date: '2026-09-08T09:12:03+01:00' }
+// { kind: 'commit', version: 'a1b2c3d', url: 'https://github.com/exadev/build-identity/commit/a1b2c3d4e5f6...', date: '2026-09-08T09:12:03+01:00', commit: 'a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2' }
 ```
 
 ## `resolveBuildIdentity(repoRoot, repoSlug, options?)`
 
 ```ts
 type BuildIdentity =
-  | { kind: 'release'; version: string; url: string; date: string }
-  | { kind: 'commit'; version: string; url: string; date: string };
+  | { kind: 'release'; version: string; url: string; date: string; commit: string }
+  | { kind: 'commit'; version: string; url: string; date: string; commit: string };
 
 function resolveBuildIdentity(repoRoot: string, repoSlug: string, options?: ResolveBuildIdentityOptions): BuildIdentity;
 
@@ -42,6 +42,8 @@ interface ResolveBuildIdentityOptions {
 - **`options.tagName`** -- turns the version into the tag name expected to mark its release. The default assumes the common `v<version>` convention (`"1.4.0"` -> `"v1.4.0"`); pass your own function for a repo that tags differently (a bare version, a package-scoped prefix in a monorepo, and so on).
 
 **The one property this function exists to guarantee:** it returns `kind: 'release'` if, and only if, a tag named `tagName(version)` provably points at the exact commit `HEAD` is on right now -- checked live against git (`git tag --list <tag> --points-at HEAD`), never inferred from `package.json`, an environment variable, or any other proxy that could be true before the tag actually exists. Every other case, including a commit sitting directly on top of the commit a release will eventually tag, returns `kind: 'commit'` instead, with `version` set to the short commit hash (there is no released version to show yet) and `url` pointing at that exact commit's permalink (using the full SHA, not the short one, so the link stays a valid, unambiguous permalink).
+
+**`commit`** is always the full git commit SHA of the exact commit this build resolves to, in both branches -- present so a caller who needs the raw SHA (to compare two builds for identity, or to construct its own link) never has to parse it back out of `url`, which never carries one at all in the `'release'` case.
 
 `resolveBuildIdentity` throws rather than defaulting whenever it can't establish a real identity -- `repoRoot` isn't a git repository, `package.json` is missing or has no non-empty string `"version"` field, or `repoSlug` isn't a real `"owner/repo"` slug. There is no sensible placeholder identity for a build that isn't sitting in real, readable git history.
 

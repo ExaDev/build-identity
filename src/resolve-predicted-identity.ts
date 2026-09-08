@@ -22,6 +22,7 @@ export function resolvePredictedIdentity(build: BuildIdentity, predictedVersion:
     version: trimmedPrediction,
     url: build.url,
     date: build.date,
+    commit: build.commit,
     predicted: true,
   };
 }

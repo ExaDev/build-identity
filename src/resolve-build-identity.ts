@@ -55,6 +55,7 @@ export function resolveBuildIdentity(repoRoot: string, repoSlug: string, options
       version,
       url: `https://github.com/${repoSlug}/releases/tag/${tagName}`,
       date: head.date,
+      commit: head.fullSha,
     };
   }
 
@@ -63,5 +64,6 @@ export function resolveBuildIdentity(repoRoot: string, repoSlug: string, options
     version: head.shortSha,
     url: `https://github.com/${repoSlug}/commit/${head.fullSha}`,
     date: head.date,
+    commit: head.fullSha,
   };
 }

@@ -7,6 +7,7 @@ const release: BuildIdentity = {
   version: '1.4.0',
   url: 'https://github.com/exadev/example/releases/tag/v1.4.0',
   date: '2026-01-01T00:00:00Z',
+  commit: 'abc1234def5678901234567890123456789abcd',
 };
 
 const commit: BuildIdentity = {
@@ -14,6 +15,7 @@ const commit: BuildIdentity = {
   version: 'abc1234',
   url: 'https://github.com/exadev/example/commit/abc1234def5678901234567890123456789abcd',
   date: '2026-01-02T00:00:00Z',
+  commit: 'abc1234def5678901234567890123456789abcd',
 };
 
 describe('resolvePredictedIdentity', () => {
@@ -28,6 +30,7 @@ describe('resolvePredictedIdentity', () => {
       version: '1.5.0',
       url: commit.url,
       date: commit.date,
+      commit: commit.commit,
       predicted: true,
     });
   });
