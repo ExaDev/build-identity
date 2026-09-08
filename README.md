@@ -203,7 +203,7 @@ echo "MY_OWN_VERSION_NAME=$(build-identity --repo my-org/my-repo | jq -r .versio
 
 `--verbose` routes commit-analyzer's own per-commit narration to **stderr**, never stdout, so it is always safe to pipe or capture stdout while debugging why a prediction came out as it did.
 
-The CLI is the one part of this package with a runtime dependency (`commander`, itself dependency-free). It is bundled into `dist/cli.js` alone: importing the library never loads it.
+The CLI is the one part of this package with a runtime dependency (`commander`, itself dependency-free). It is bundled into `dist/cli.js` alone: importing the library never loads it. It stays on `commander@14` deliberately, rather than the newest major: `commander@15` raises its own floor to Node 22.12, which would contradict this package's declared `engines` of Node 20 and upwards. Raise it alongside that floor, not before it.
 
 ## Framework-agnosticism
 
