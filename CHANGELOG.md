@@ -1,3 +1,27 @@
+# [2.0.0](https://github.com/ExaDev/build-identity/compare/v1.1.0...v2.0.0) (2026-09-08)
+
+
+* feat!: model a predicted-but-unreleased build as its own DisplayIdentity kind ([02e1413](https://github.com/ExaDev/build-identity/commit/02e141362be05db07b0111fe61aace2d34866f54))
+
+
+### Bug Fixes
+
+* raise vitest's per-test timeout for subprocess-spawning tests ([c664a3a](https://github.com/ExaDev/build-identity/commit/c664a3a2bcb39146d573137879167e71a2b30c74))
+
+
+### Features
+
+* predict the next release version without semantic-release's own orchestrator ([fe16be0](https://github.com/ExaDev/build-identity/commit/fe16be0e66a4f2390fce6646dc94a14c3233adf1))
+
+
+### BREAKING CHANGES
+
+* resolvePredictedIdentity's return type is now
+DisplayIdentity (kind: 'release' | 'predicted' | 'commit'), not
+BuildIdentity & { predicted?: boolean }. An unreleased build with a
+prediction now reports kind: 'predicted' instead of kind: 'commit' with
+a separate predicted: true field.
+
 # [1.1.0](https://github.com/ExaDev/build-identity/compare/v1.0.1...v1.1.0) (2026-09-08)
 
 
