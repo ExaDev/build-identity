@@ -23,6 +23,8 @@ const identity = resolveBuildIdentity(process.cwd(), 'exadev/build-identity');
 // { kind: 'commit', version: 'a1b2c3d', url: 'https://github.com/exadev/build-identity/commit/a1b2c3d4e5f6...', date: '2026-09-08T09:12:03+01:00', commit: 'a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2' }
 ```
 
+The same thing is available as a command, for build and deploy steps that cannot import anything -- see [`build-identity` (CLI)](#build-identity-cli).
+
 ## `resolveBuildIdentity(repoRoot, repoSlug, options?)`
 
 ```ts
@@ -116,9 +118,98 @@ const predictedVersion = await predictNextVersion(process.cwd(), releaseRules, a
 const identity = resolvePredictedIdentity(build, predictedVersion);
 ```
 
+## `build-identity` (CLI)
+
+The same three functions, wired together, as a command. It exists for build and deploy steps that are a shell invocation rather than a JavaScript config file, so nothing in them can `import` this package at all -- `wrangler deploy --var RELEASE_VERSION:...` being the case it was built for. A step that *is* a JavaScript config file (`next.config.ts`, `vite.config.ts`) should import the functions directly instead; see [Framework-agnosticism](#framework-agnosticism) below.
+
+```sh
+pnpm add -D @exadev/build-identity
+pnpm exec build-identity --repo exadev/build-identity
+```
+
+```
+Usage: build-identity [options]
+
+Options:
+  -V, --version                output the version number
+  --repo <owner/repo>          GitHub slug used to build the release and commit URLs
+  --root <directory>           git working tree to inspect (default: the current working directory)
+  --tag-name <template>        tag name marking a release, with {version} standing in for the version (default: v{version})
+  --predict                    also predict the version this commit's next release would be
+  --release-rules <json>       commit-analyzer release rules for --predict, as a JSON array
+  --release-rules-file <path>  file holding the same JSON array as --release-rules
+  --format <format>            output format: json or env (default: "json")
+  --prefix <prefix>            prepended to each variable name in --format env (default: "BUILD_")
+  --verbose                    send commit-analyzer's own per-commit narration to stderr
+  -h, --help                   display help for command
+```
+
+`--repo` is the only required flag, and the command's whole output is a single `DisplayIdentity` on stdout:
+
+```sh
+$ build-identity --repo exadev/build-identity
+{
+  "kind": "commit",
+  "version": "a1b2c3d",
+  "url": "https://github.com/exadev/build-identity/commit/a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2",
+  "date": "2026-09-08T09:12:03+01:00",
+  "commit": "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2"
+}
+```
+
+Those are exactly the five fields `DisplayIdentity` declares, under exactly its own names -- there is no CLI-specific shape and no consumer-specific naming. In particular there is no separate `predicted` boolean: `kind` is already `"predicted"` in precisely that case, and a second field asserting the same fact would just be one more thing that could disagree with the first.
+
+### Prediction
+
+`--predict` adds the `predictNextVersion` step, turning an unreleased build's short commit hash into the version that commit would release as. It is opt-in rather than automatic because it costs something real: it needs `@semantic-release/commit-analyzer` (this package's optional peer dependency) to be installed, and it reads every commit since the last tag.
+
+Release rules are yours, not this package's -- your repo's commit-type-to-release-level convention is real configuration, and nothing here invents a default for it. Pass them inline, or from a file when quoting a full rule set through YAML and a shell gets unreadable:
+
+```sh
+build-identity --repo exadev/build-identity --predict \
+  --release-rules '[{"breaking":true,"release":"major"},{"type":"feat","release":"minor"},{"type":"fix","release":"patch"}]'
+
+build-identity --repo exadev/build-identity --predict --release-rules-file release-rules.json
+```
+
+A confirmed release still wins outright: on a commit an actual release tag points at, `--predict` changes nothing at all.
+
+### `--format env`
+
+```sh
+$ build-identity --repo exadev/build-identity --format env --prefix RELEASE_
+RELEASE_KIND=commit
+RELEASE_VERSION=a1b2c3d
+RELEASE_URL=https://github.com/exadev/build-identity/commit/a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2
+RELEASE_DATE=2026-09-08T09:12:03+01:00
+RELEASE_COMMIT=a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2
+```
+
+The variable names are the same generic field names, upper-cased, behind a prefix of your choosing. This format is deliberately additional surface rather than "emit JSON and document a `jq` one-liner": appending to `$GITHUB_ENV` is the realistic use for both of the cases that motivated this CLI, and the one-liner alternative would put a `jq` dependency and a quoting-sensitive shell expression into every consumer's workflow to produce output this package can simply print. A value containing a line break is refused outright rather than emitted, since it would silently swallow or inject `$GITHUB_ENV` entries.
+
+```yaml
+- name: Resolve the build's identity
+  run: pnpm exec build-identity --repo my-org/my-repo --predict --release-rules-file release-rules.json --format env --prefix RELEASE_ >> "$GITHUB_ENV"
+
+- name: Deploy
+  run: wrangler deploy --var RELEASE_VERSION:$RELEASE_VERSION --var RELEASE_COMMIT:$RELEASE_COMMIT
+```
+
+Where a repo's own variable names differ from the generic ones, map them in that repo's own workflow rather than expecting this package to know them -- `--prefix` covers most of it, and `jq` covers the rest:
+
+```sh
+echo "MY_OWN_VERSION_NAME=$(build-identity --repo my-org/my-repo | jq -r .version)" >> "$GITHUB_ENV"
+```
+
+`--verbose` routes commit-analyzer's own per-commit narration to **stderr**, never stdout, so it is always safe to pipe or capture stdout while debugging why a prediction came out as it did.
+
+The CLI is the one part of this package with a runtime dependency (`commander`, itself dependency-free). It is bundled into `dist/cli.js` alone: importing the library never loads it.
+
 ## Framework-agnosticism
 
 This package does pure Node.js filesystem and git access only -- no bundler, framework, or UI assumptions. Wiring its result into a running app is a build-time concern for whichever bundler that app already uses, done in that bundler's own config file, not in this package.
+
+**A config file that is itself JavaScript does not need the CLI** -- it can import the functions directly, which is both simpler and better typed than shelling out and parsing JSON back. Reach for `build-identity` (above) only where there is genuinely nothing to import from: a `wrangler deploy --var ...` line, a `docker build --build-arg ...` line, a plain `sh` deploy script.
 
 ### Next.js
 
