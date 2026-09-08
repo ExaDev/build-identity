@@ -11,6 +11,6 @@ export default defineConfig(
     },
   },
   ...exadev,
-  // src/index.ts is this package's own entry-point barrel -- keep it, don't ban it.
+  // src/index.ts is this package's own entry-point barrel. Keep it, don't ban it.
   { files: ['src/index.ts'], rules: { 'exadev/barrel-policy': ['error', { mode: 'single' }] } },
 );

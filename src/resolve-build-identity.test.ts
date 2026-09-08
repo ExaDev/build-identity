@@ -30,7 +30,7 @@ describe('resolveBuildIdentity', () => {
     expect(identity.date).toMatch(/^\d{4}-\d{2}-\d{2}T/);
   });
 
-  it('never claims a release when the matching tag exists but HEAD has since moved past it -- the core correctness property', () => {
+  it('never claims a release when the matching tag exists but HEAD has since moved past it: the core correctness property', () => {
     repo = createTestRepo({ name: 'fixture', version: '1.4.0' });
     repo.tag('v1.4.0');
     repo.commit('feat: something new after the release tag');

@@ -54,7 +54,7 @@ describe('tagPointsAtHead', () => {
     expect(tagPointsAtHead(repo.root, 'v1.0.0')).toBe(true);
   });
 
-  it('is false when the tag exists but HEAD has since moved past it -- the case that must never be mistaken for a release', () => {
+  it('is false when the tag exists but HEAD has since moved past it: the case that must never be mistaken for a release', () => {
     repo = createTestRepo();
     repo.tag('v1.0.0');
     repo.commit();

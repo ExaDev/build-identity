@@ -42,7 +42,7 @@ export function createTestRepo(packageJson: Record<string, unknown> = { name: 'f
       return git(root, ['rev-parse', 'HEAD']);
     },
     tag(name: string) {
-      // -c tag.gpgSign=false: this machine's global git config signs every tag by default, which needs a GPG agent and turns a plain lightweight tag into an annotated one requiring a message -- neither of which a disposable test fixture should depend on.
+      // -c tag.gpgSign=false: this machine's global git config signs every tag by default, which needs a GPG agent and turns a plain lightweight tag into an annotated one requiring a message, neither of which a disposable test fixture should depend on.
       git(root, ['-c', 'tag.gpgSign=false', 'tag', name]);
     },
     cleanup() {
