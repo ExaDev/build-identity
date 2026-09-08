@@ -1,33 +1,8 @@
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { getHeadCommit, tagPointsAtHead } from './git';
+import { defaultTagName, readPackageVersion } from './package-version';
 import type { BuildIdentity, ResolveBuildIdentityOptions } from './types';
 
 const REPO_SLUG_PATTERN = /^[^/\s]+\/[^/\s]+$/;
-
-function defaultTagName(version: string): string {
-  return `v${version}`;
-}
-
-function isPackageJsonWithVersion(value: unknown): value is { version: string } {
-  if (typeof value !== 'object' || value === null) {
-    return false;
-  }
-  if (!('version' in value)) {
-    return false;
-  }
-  return typeof value.version === 'string' && value.version.length > 0;
-}
-
-function readPackageVersion(repoRoot: string): string {
-  const packageJsonPath = join(repoRoot, 'package.json');
-  const raw = readFileSync(packageJsonPath, 'utf8');
-  const parsed: unknown = JSON.parse(raw);
-  if (!isPackageJsonWithVersion(parsed)) {
-    throw new Error(`${packageJsonPath} must contain a non-empty string "version" field`);
-  }
-  return parsed.version;
-}
 
 function assertRepoSlug(repoSlug: string): void {
   if (!REPO_SLUG_PATTERN.test(repoSlug)) {
