@@ -23,11 +23,13 @@ describe('resolveBuildIdentity', () => {
   it('returns a release identity when v<version> tags HEAD exactly', () => {
     repo = createTestRepo({ name: 'fixture', version: '1.4.0' });
     repo.tag('v1.4.0');
+    const fullSha = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repo.root, encoding: 'utf8' }).trim();
     const identity = resolveBuildIdentity(repo.root, 'exadev/example');
     expect(identity.kind).toBe('release');
     expect(identity.version).toBe('1.4.0');
     expect(identity.url).toBe('https://github.com/exadev/example/releases/tag/v1.4.0');
     expect(identity.date).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+    expect(identity.commit).toBe(fullSha);
   });
 
   it('never claims a release when the matching tag exists but HEAD has since moved past it -- the core correctness property', () => {
@@ -65,6 +67,7 @@ describe('resolveBuildIdentity', () => {
     expect(identity.url).toBe(`https://github.com/exadev/example/commit/${fullSha}`);
     expect(fullSha.startsWith(identity.version)).toBe(true);
     expect(identity.version.length).toBeLessThan(fullSha.length);
+    expect(identity.commit).toBe(fullSha);
   });
 
   it('throws rather than defaulting when package.json has no version field', () => {

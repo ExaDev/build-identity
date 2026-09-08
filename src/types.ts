@@ -12,6 +12,8 @@ export type BuildIdentity =
       readonly url: string;
       /** ISO 8601 date of the commit this release was tagged at. */
       readonly date: string;
+      /** Full git commit SHA of the commit this release was tagged at -- the same commit `url` and `date` describe, exposed as its own field so a caller never has to parse it back out of a release URL that never contains one. */
+      readonly commit: string;
     }
   | {
       readonly kind: 'commit';
@@ -21,6 +23,8 @@ export type BuildIdentity =
       readonly url: string;
       /** ISO 8601 date of this commit. */
       readonly date: string;
+      /** Full git commit SHA this build was made from -- the same commit `version`'s short form and `url`'s permalink describe. */
+      readonly commit: string;
     };
 
 export interface ResolveBuildIdentityOptions {
