@@ -1,6 +1,6 @@
 {
   "name": "@exadev/build-identity",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "description": "Resolve a build's true identity (a real release tag, or the commit it was built from) from git state, with an optional predicted-version display layer",
   "type": "module",
   "sideEffects": false,
