@@ -25,7 +25,7 @@ export const commitTypes: readonly CommitType[] = [
 ];
 
 /**
- * Runs on `main`. Analyses commits since the last tag, bumps the version, publishes to npmjs.org (trusted OIDC publishing, no stored token -- see .github/workflows/ci.yml), creates a versioned tag and GitHub Release with generated notes, and commits CHANGELOG.md + package.json back to main.
+ * Runs on `main`. Analyses commits since the last tag, bumps the version, publishes to npmjs.org (trusted OIDC publishing, no stored token; see .github/workflows/ci.yml), creates a versioned tag and GitHub Release with generated notes, and commits CHANGELOG.md + package.json back to main.
  */
 const config: Options = {
   branches: ['main'],
@@ -40,7 +40,7 @@ const config: Options = {
     [
       '@semantic-release/release-notes-generator',
       {
-        // Deliberately angular, not conventionalcommits -- conventional-changelog-writer's bundled commit partial doesn't match the conventionalcommits preset's function-based partial signature, producing a changelog with a version header and nothing under it.
+        // Deliberately angular, not conventionalcommits: conventional-changelog-writer's bundled commit partial doesn't match the conventionalcommits preset's function-based partial signature, producing a changelog with a version header and nothing under it.
         preset: 'angular',
       },
     ],

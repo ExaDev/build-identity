@@ -41,13 +41,13 @@ describe('resolvePredictedIdentity', () => {
     expect(resolvePredictedIdentity(commit, predicted)).toBe(commit);
   });
 
-  it('never lets a predicted version leak into the URL -- a caller can never render a link to a release that does not exist', () => {
+  it('never lets a predicted version leak into the URL: a caller can never render a link to a release that does not exist', () => {
     const result = resolvePredictedIdentity(commit, '99.0.0');
     expect(result.url).toBe(commit.url);
     expect(result.url).not.toContain('99.0.0');
   });
 
-  it('does no git or filesystem access of its own -- it is a pure transform of its two arguments', () => {
+  it('does no git or filesystem access of its own: it is a pure transform of its two arguments', () => {
     const before = { ...commit };
     resolvePredictedIdentity(commit, '1.5.0');
     expect(commit).toEqual(before);

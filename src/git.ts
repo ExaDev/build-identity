@@ -12,7 +12,7 @@ function runGit(repoRoot: string, args: readonly string[]): string {
 }
 
 /**
- * Reads HEAD's full hash, short hash, and committer date from the given git working tree. Throws whatever `git` itself throws (e.g. `repoRoot` is not a git repository, or has no commits) -- there is no sensible default identity for a build that isn't sitting in real git history.
+ * Reads HEAD's full hash, short hash, and committer date from the given git working tree. Throws whatever `git` itself throws (e.g. `repoRoot` is not a git repository, or has no commits). There is no sensible default identity for a build that isn't sitting in real git history.
  */
 export function getHeadCommit(repoRoot: string): HeadCommit {
   const fullSha = runGit(repoRoot, ['rev-parse', 'HEAD']);
@@ -22,7 +22,7 @@ export function getHeadCommit(repoRoot: string): HeadCommit {
 }
 
 /**
- * True only if `tagName` both exists and points at the exact commit HEAD is on right now. Uses `git tag --list <tag> --points-at HEAD`, which returns `tagName` itself when both hold and nothing otherwise -- there is no separate "tag exists but points elsewhere" case to confuse this with.
+ * True only if `tagName` both exists and points at the exact commit HEAD is on right now. Uses `git tag --list <tag> --points-at HEAD`, which returns `tagName` itself when both hold and nothing otherwise. There is no separate "tag exists but points elsewhere" case to confuse this with.
  */
 export function tagPointsAtHead(repoRoot: string, tagName: string): boolean {
   const output = runGit(repoRoot, ['tag', '--list', tagName, '--points-at', 'HEAD']);
