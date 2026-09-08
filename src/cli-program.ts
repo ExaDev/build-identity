@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { inspect } from 'node:util';
+import { format } from 'node:util';
 import { Command, InvalidArgumentError, Option } from 'commander';
 // resolveJsonModule lets rolldown (via tsdown) inline this package's own declared version straight into the bundle at build time -- no runtime fs read.
 import { version as packageVersion } from '../package.json';
@@ -21,8 +21,9 @@ const STDERR_LOGGER = {
   error: (...args: readonly unknown[]): void => { writeStderr(args); },
 };
 
+// node:util's format, not a plain join: commit-analyzer narrates with printf-style placeholders ("Analyzing commit: %s", message), which any other joining strategy would leave in the output verbatim next to the value meant to replace them.
 function writeStderr(args: readonly unknown[]): void {
-  process.stderr.write(`${args.map((arg) => (typeof arg === 'string' ? arg : inspect(arg))).join(' ')}\n`);
+  process.stderr.write(`${format(...args)}\n`);
 }
 
 /**
