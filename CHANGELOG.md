@@ -1,3 +1,16 @@
+# [2.1.0](https://github.com/ExaDev/build-identity/compare/v2.0.0...v2.1.0) (2026-09-08)
+
+
+### Bug Fixes
+
+* keep commander within this package's own declared Node floor ([a2118c8](https://github.com/ExaDev/build-identity/commit/a2118c84747d902a9f1711a19da7eb3111688f2e))
+* substitute printf placeholders in --verbose analyzer narration ([540970d](https://github.com/ExaDev/build-identity/commit/540970db5c628490a808cdf1dd87b57f2ae3ef54))
+
+
+### Features
+
+* expose the resolved identity as a build-identity command ([f4db417](https://github.com/ExaDev/build-identity/commit/f4db417c99393386081f7e9cb1e12df533118f6b))
+
 # [2.0.0](https://github.com/ExaDev/build-identity/compare/v1.1.0...v2.0.0) (2026-09-08)
 
 
