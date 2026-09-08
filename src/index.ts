@@ -1,3 +1,6 @@
 export { resolveBuildIdentity } from './resolve-build-identity';
 export { resolvePredictedIdentity } from './resolve-predicted-identity';
-export type { BuildIdentity, ResolveBuildIdentityOptions } from './types';
+export { predictNextVersion } from './predict-next-version';
+export { loadCommitAnalyzer } from './load-commit-analyzer';
+export type { BuildIdentity, DisplayIdentity, ResolveBuildIdentityOptions } from './types';
+export type { AnalyzeCommits, PredictNextVersionOptions, ReleaseLevel, ReleaseRule } from './predict-next-version';
