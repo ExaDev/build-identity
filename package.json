@@ -12,6 +12,9 @@
   "publishConfig": {
     "access": "public"
   },
+  "bin": {
+    "build-identity": "./dist/cli.js"
+  },
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -33,7 +36,8 @@
     "version",
     "git",
     "release",
-    "commit"
+    "commit",
+    "cli"
   ],
   "repository": {
     "type": "git",
@@ -80,5 +84,8 @@
     "prepublishOnly": "pnpm run lint && pnpm run typecheck && pnpm run test && tsdown && publint && attw --pack",
     "prepare": "husky",
     "release": "semantic-release"
+  },
+  "dependencies": {
+    "commander": "^15.0.0"
   }
 }
