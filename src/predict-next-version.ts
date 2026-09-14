@@ -33,7 +33,7 @@ export function isReleaseLevel(value: unknown): value is ReleaseLevel {
   return value === 'major' || value === 'minor' || value === 'patch';
 }
 
-/** One @semantic-release/commit-analyzer release rule -- either `{ type, release }` (a conventional-commit type, e.g. `"feat"`) or `{ breaking: true, release }` (any commit whose footer/body declares a breaking change, regardless of type). `release` also accepts `false`, commit-analyzer's own way to say "this type never triggers a release" -- needed to override a broader rule or preset default, distinct from simply omitting the type (which instead falls through to whatever the preset's own default is). This package hardcodes no rules of its own: a repo's commit-type-to-release-level convention is real, repo-specific configuration. */
+/** One `@semantic-release/commit-analyzer` release rule -- either `{ type, release }` (a conventional-commit type, e.g. `"feat"`) or `{ breaking: true, release }` (any commit whose footer/body declares a breaking change, regardless of type). `release` also accepts `false`, commit-analyzer's own way to say "this type never triggers a release" -- needed to override a broader rule or preset default, distinct from simply omitting the type (which instead falls through to whatever the preset's own default is). This package hardcodes no rules of its own: a repo's commit-type-to-release-level convention is real, repo-specific configuration. */
 export type ReleaseRule = { readonly type: string; readonly release: ReleaseLevel | false } | { readonly breaking: true; readonly release: ReleaseLevel | false };
 
 /**
@@ -52,7 +52,7 @@ export function bumpVersion(version: string, releaseType: ReleaseLevel): string 
 export interface PredictNextVersionOptions {
   /** Matches `resolveBuildIdentity`'s own option of the same name -- pass the same function to both when a repo tags non-default, so "which tag marks the last release" stays one convention rather than two that could drift apart. Defaults to the `v${version}` convention. */
   tagName?: (version: string) => string;
-  /** Receives @semantic-release/commit-analyzer's own per-commit narration (e.g. "Analyzing commit: ...", "The release type for the commit is minor"). Defaults to discarding it. Pass your own to route it to stderr or a real logger -- never stdout, so a caller parsing a single predicted-version line from this process's own stdout is never at risk of it being contaminated. */
+  /** Receives `@semantic-release/commit-analyzer`'s own per-commit narration (e.g. "Analyzing commit: ...", "The release type for the commit is minor"). Defaults to discarding it. Pass your own to route it to stderr or a real logger -- never stdout, so a caller parsing a single predicted-version line from this process's own stdout is never at risk of it being contaminated. */
   logger?: { log: (...args: readonly unknown[]) => void; error: (...args: readonly unknown[]) => void };
 }
 
@@ -62,10 +62,9 @@ const NOOP_LOGGER = { log: (): void => undefined, error: (): void => undefined }
  * Predicts the version this repo's next release would be, from commits since the last tagged release -- WITHOUT running semantic-release's own top-level orchestrator. That orchestrator's core (not any plugin) verifies push access to the remote as part of resolving branches before analysis ever runs: genuinely slow, and needing credentials a prediction has no real reason to hold. This calls `analyzeCommits` directly instead -- no network, no registry lookups -- exactly the same hook `@semantic-release/commit-analyzer` exports, supplied by the caller (see `AnalyzeCommits`'s own doc comment for why this package never imports that module itself).
  *
  * Returns `undefined` when there is genuinely no predicted release -- no commits since the last tag, or none of them are release-worthy under `releaseRules` -- the same "nothing to report" case `resolvePredictedIdentity` already treats as valid, not an error. Throws for a genuine setup problem instead of defaulting: `repoRoot` isn't a git repository, or `package.json` has no usable version.
- *
- * @param repoRoot Path to the git working tree to inspect (must contain `package.json` at its root, same as `resolveBuildIdentity`).
- * @param releaseRules The commit-analyzer release rules this repo's own commit convention defines.
- * @param analyzeCommits `@semantic-release/commit-analyzer`'s own `analyzeCommits` export -- `loadCommitAnalyzer` (`./load-commit-analyzer`) is the tested way to obtain one.
+ * @param repoRoot - Path to the git working tree to inspect (must contain `package.json` at its root, same as `resolveBuildIdentity`).
+ * @param releaseRules - The commit-analyzer release rules this repo's own commit convention defines.
+ * @param analyzeCommits - `@semantic-release/commit-analyzer`'s own `analyzeCommits` export -- `loadCommitAnalyzer` (`./load-commit-analyzer`) is the tested way to obtain one.
  */
 export async function predictNextVersion(repoRoot: string, releaseRules: readonly ReleaseRule[], analyzeCommits: AnalyzeCommits, options: PredictNextVersionOptions = {}): Promise<string | undefined> {
   const lastVersion = readPackageVersion(repoRoot);
