@@ -4,6 +4,8 @@
 
 > Resolve a build's true identity -- a real, already-tagged release, or the commit it was built from -- from live git state, with an optional predicted-version display layer.
 
+[![npm downloads chart, log scale](https://shieldcn.dev/chart/npm/@exadev/build-identity.svg?bg=transparent&logo=false&yScale=log)](https://www.npmjs.com/package/@exadev/build-identity)
+
 ## Why
 
 A build banner or footer link (`v1.4.0`, linking to a release page) is only honest the moment a real release actually exists at that commit. Deriving that label from `package.json` alone, or from a CI environment variable, or from "this is the main branch so it must be the latest release" is exactly how a link to a release page that doesn't exist yet gets shipped -- typically the commit that triggers the release pipeline itself, before the tag and GitHub Release the link points at have actually been created. This package makes that check live and unavoidable: it shells out to git, checks whether the release tag genuinely points at `HEAD` right now, and only then returns a `'release'` identity.
