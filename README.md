@@ -37,19 +37,19 @@ type BuildIdentity =
 function resolveBuildIdentity(repoRoot: string, repoSlug: string, options?: ResolveBuildIdentityOptions): BuildIdentity;
 
 interface ResolveBuildIdentityOptions {
-  tagName?: (version: string) => string; // defaults to (version) => `v${version}`
+  tagTemplate?: string; // defaults to 'v{version}'
 }
 ```
 
-- **`repoRoot`** -- path to the git working tree to inspect. Must contain `package.json` at its root; that file's `"version"` field is the released version this function checks for.
+- **`repoRoot`** -- path to the git working tree to inspect. The released version comes from its release tags (see [`findLastRelease`](#findlastreleasereporoot-tagtemplate)); no file in it is read.
 - **`repoSlug`** -- the GitHub `"owner/repo"` slug used to build both the release and commit URLs (e.g. `"exadev/build-identity"`).
-- **`options.tagName`** -- turns the version into the tag name expected to mark its release. The default assumes the common `v<version>` convention (`"1.4.0"` -> `"v1.4.0"`); pass your own function for a repo that tags differently (a bare version, a package-scoped prefix in a monorepo, and so on).
+- **`options.tagTemplate`** -- the tag name marking a release, with `{version}` standing in for the version exactly once. The default is the common `v{version}` convention (`"1.4.0"` -> `"v1.4.0"`), the same as semantic-release's default `tagFormat`; pass your own for a repo that tags differently (a bare version, a package-scoped prefix in a monorepo, and so on). Tags are read back through it, so a tag that does not fit it, or that carries a prerelease version, is never a release.
 
-**The one property this function exists to guarantee:** it returns `kind: 'release'` if, and only if, a tag named `tagName(version)` provably points at the exact commit `HEAD` is on right now -- checked live against git (`git tag --list <tag> --points-at HEAD`), never inferred from `package.json`, an environment variable, or any other proxy that could be true before the tag actually exists. Every other case, including a commit sitting directly on top of the commit a release will eventually tag, returns `kind: 'commit'` instead, with `version` set to the short commit hash (there is no released version to show yet) and `url` pointing at that exact commit's permalink (using the full SHA, not the short one, so the link stays a valid, unambiguous permalink).
+**The one property this function exists to guarantee:** it returns `kind: 'release'` if, and only if, the last release reachable from `HEAD` (the highest release tag `git tag --merged HEAD` lists) provably points at the exact commit `HEAD` is on right now -- checked live against git (`git tag --list <tag> --points-at HEAD`), never inferred from a version in `package.json`, an environment variable, or any other proxy that could be true before the tag actually exists. The version is read from that tag, so a repository whose releases are only tags (no release commit bumping `package.json`) resolves correctly. Every other case, including a commit sitting directly on top of the commit a release will eventually tag, returns `kind: 'commit'` instead, with `version` set to the short commit hash (there is no released version to show yet) and `url` pointing at that exact commit's permalink (using the full SHA, not the short one, so the link stays a valid, unambiguous permalink).
 
 **`commit`** is always the full git commit SHA of the exact commit this build resolves to, in both branches -- present so a caller who needs the raw SHA (to compare two builds for identity, or to construct its own link) never has to parse it back out of `url`, which never carries one at all in the `'release'` case.
 
-`resolveBuildIdentity` throws rather than defaulting whenever it can't establish a real identity -- `repoRoot` isn't a git repository, `package.json` is missing or has no non-empty string `"version"` field, or `repoSlug` isn't a real `"owner/repo"` slug. There is no sensible placeholder identity for a build that isn't sitting in real, readable git history.
+`resolveBuildIdentity` throws rather than defaulting whenever it can't establish a real identity -- `repoRoot` isn't a git repository, the tag template does not hold `{version}` exactly once, or `repoSlug` isn't a real `"owner/repo"` slug. There is no sensible placeholder identity for a build that isn't sitting in real, readable git history.
 
 ## `resolvePredictedIdentity(build, predictedVersion)`
 
@@ -85,7 +85,7 @@ type AnalyzeCommits = (pluginConfig: unknown, context: unknown) => Promise<unkno
 function predictNextVersion(repoRoot: string, releaseRules: readonly ReleaseRule[], analyzeCommits: AnalyzeCommits, options?: PredictNextVersionOptions): Promise<string | undefined>;
 
 interface PredictNextVersionOptions {
-  tagName?: (version: string) => string; // matches resolveBuildIdentity's own option of the same name
+  tagTemplate?: string; // matches resolveBuildIdentity's own option of the same name
   logger?: { log: (...args: unknown[]) => void; error: (...args: unknown[]) => void }; // defaults to discarding
 }
 ```
@@ -94,7 +94,9 @@ Predicts the version a repo's next release would be, from the commits since its 
 
 `releaseRules` is your own repo's commit-type-to-release-level convention (the same shape `@semantic-release/commit-analyzer`'s own `releaseRules` option takes) -- this package hardcodes none of its own.
 
-Returns `undefined` when there is genuinely no predicted release -- no commits since the last tag, or none of them are release-worthy -- the same "nothing to report" case `resolvePredictedIdentity` already treats as valid, not an error. Throws for a genuine setup problem instead of defaulting: `repoRoot` isn't a git repository, or `package.json` has no usable version.
+The last release is the one [`findLastRelease`](#findlastreleasereporoot-tagtemplate) finds from the tags, and only the commits since its tag are analysed. Before a repository's first release, every commit in `HEAD`'s history is analysed and a release-worthy one predicts `1.0.0` (`FIRST_RELEASE_VERSION`), as semantic-release does.
+
+Returns `undefined` when there is genuinely no predicted release -- no commits since the last tag, or none of them are release-worthy -- the same "nothing to report" case `resolvePredictedIdentity` already treats as valid, not an error. Throws for a genuine setup problem instead of defaulting: `repoRoot` isn't a git repository, or the tag template is malformed.
 
 **`analyzeCommits`** is supplied by the caller rather than imported by this package: `@semantic-release/commit-analyzer` ships no type declarations and `analyzeCommits` isn't part of its documented public API, so loading it safely is a concern specific to your own toolchain. `predictNextVersion` itself stays a pure function of its arguments -- easy to test with a fake analyzer.
 
@@ -120,20 +122,22 @@ const predictedVersion = await predictNextVersion(process.cwd(), releaseRules, a
 const identity = resolvePredictedIdentity(build, predictedVersion);
 ```
 
-## `readPackageVersion(repoRoot)`
+## `findLastRelease(repoRoot, tagTemplate?)`
 
 ```ts
-function readPackageVersion(repoRoot: string): string;
+interface LastRelease { version: string; tagName: string }
+
+function findLastRelease(repoRoot: string, tagTemplate?: string): LastRelease | undefined; // tagTemplate defaults to DEFAULT_TAG_TEMPLATE, 'v{version}'
 ```
 
-The plain `"version"` field from `package.json` at `repoRoot`, read unconditionally and with no git access at all. This is deliberately not the same thing as `resolveBuildIdentity(...).version`, which is a build *identity* -- the released version only when a tag genuinely points at HEAD, and a short commit hash otherwise. Reach for this one when you want the last released semantic version regardless of whether this checkout happens to be sitting on its tag: an OpenAPI document's `info.version`, a user agent string, anything wanting a stable semver rather than an honest answer about what is deployed.
+The last released version and the tag marking it, found the way semantic-release's own core finds it: the highest `major.minor.patch` version among the tags reachable from `HEAD` (`git tag --merged HEAD`) that fit `tagTemplate`. A prerelease tag, a tag in another format and a tag on a commit `HEAD` does not contain (a release cut from another branch) are never the last release. Returns `undefined` before a repository's first release. `resolveBuildIdentity` and `predictNextVersion` both start from this.
 
-Throws rather than defaulting when `package.json` is missing or its `"version"` is absent, non-string, or empty -- the same stance every other export in this package takes. `defaultTagName` (`v${version}`) is the shared convention `resolveBuildIdentity` and `predictNextVersion` both apply to this value.
+Reach for it directly when you want the last released semantic version regardless of whether this checkout happens to be sitting on its tag: an OpenAPI document's `info.version`, a user agent string, anything wanting a stable semver rather than an honest answer about what is deployed. It needs the tags in the checkout, so a shallow CI clone has to fetch them.
 
 ```ts
-import { readPackageVersion, resolveBuildIdentity } from '@exadev/build-identity';
+import { findLastRelease, resolveBuildIdentity } from '@exadev/build-identity';
 
-const appVersion = readPackageVersion(process.cwd()); // "1.4.0", tagged or not
+const appVersion = findLastRelease(process.cwd())?.version; // "1.4.0", tagged or not
 const build = resolveBuildIdentity(process.cwd(), 'exadev/example'); // "1.4.0" or "a1b2c3d"
 ```
 

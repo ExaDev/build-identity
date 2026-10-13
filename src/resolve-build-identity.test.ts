@@ -40,18 +40,18 @@ describe('resolveBuildIdentity', () => {
     expect(identity.kind).toBe('commit');
   });
 
-  it('never claims a release for a version that has never been tagged at all', () => {
+  it('reports the version the tag on HEAD names, whatever version package.json holds', () => {
     repo = createTestRepo({ name: 'fixture', version: '1.4.0' });
-    repo.tag('v1.3.0'); // an earlier release, not this one, and not at HEAD
+    repo.tag('v1.3.0');
     const identity = resolveBuildIdentity(repo.root, 'exadev/example');
-    expect(identity.kind).toBe('commit');
+    expect(identity).toMatchObject({ kind: 'release', version: '1.3.0' });
   });
 
-  it('uses a caller-supplied tagName function instead of the default v-prefix convention', () => {
+  it('uses a caller-supplied tag template instead of the default v-prefix convention', () => {
     repo = createTestRepo({ name: 'fixture', version: '2.0.0' });
     repo.tag('release-2.0.0');
     const identity = resolveBuildIdentity(repo.root, 'exadev/example', {
-      tagName: (version) => `release-${version}`,
+      tagTemplate: 'release-{version}',
     });
     expect(identity.kind).toBe('release');
     expect(identity.url).toBe('https://github.com/exadev/example/releases/tag/release-2.0.0');
@@ -70,26 +70,31 @@ describe('resolveBuildIdentity', () => {
     expect(identity.commit).toBe(fullSha);
   });
 
-  it('throws rather than defaulting when package.json has no version field', () => {
-    repo = createTestRepo({ name: 'fixture' });
-    const { root } = repo;
-    expect(() => resolveBuildIdentity(root, 'exadev/example')).toThrow(/version/);
+  it('reads the released version from the tag, not from package.json, so a release made without a version-bump commit is still a release', () => {
+    repo = createTestRepo({ name: 'fixture', version: '1.4.0' });
+    repo.tag('v1.4.0');
+    repo.commit('feat: released without touching package.json');
+    repo.tag('v1.5.0');
+    const identity = resolveBuildIdentity(repo.root, 'exadev/example');
+    expect(identity).toMatchObject({ kind: 'release', version: '1.5.0', url: 'https://github.com/exadev/example/releases/tag/v1.5.0' });
   });
 
-  it('throws rather than defaulting when package.json does not even contain a JSON object', () => {
+  it('needs no package.json at all', () => {
     repo = createTestRepo();
-    writeFileSync(join(repo.root, 'package.json'), 'null');
-    const { root } = repo;
-    expect(() => resolveBuildIdentity(root, 'exadev/example')).toThrow(/version/);
+    rmSync(join(repo.root, 'package.json'));
+    repo.commit('chore: drop package.json');
+    repo.tag('v1.0.0');
+    expect(resolveBuildIdentity(repo.root, 'exadev/example')).toMatchObject({ kind: 'release', version: '1.0.0' });
   });
 
-  it('throws rather than defaulting when package.json has an empty version field', () => {
-    repo = createTestRepo({ name: 'fixture', version: '' });
-    const { root } = repo;
-    expect(() => resolveBuildIdentity(root, 'exadev/example')).toThrow(/version/);
+  it('never treats a tag outside the template or a prerelease tag on HEAD as a release', () => {
+    repo = createTestRepo();
+    repo.tag('latest');
+    repo.tag('v2.0.0-rc.1');
+    expect(resolveBuildIdentity(repo.root, 'exadev/example').kind).toBe('commit');
   });
 
-  it('throws for a repoSlug that is not a real "owner/repo" slug', () => {
+    it('throws for a repoSlug that is not a real "owner/repo" slug', () => {
     repo = createTestRepo({ name: 'fixture', version: '1.0.0' });
     const { root } = repo;
     expect(() => resolveBuildIdentity(root, 'not-a-slug')).toThrow(/owner\/repo/);

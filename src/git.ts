@@ -31,3 +31,12 @@ export function tagPointsAtHead(repoRoot: string, tagName: string): boolean {
     .map((line) => line.trim())
     .includes(tagName);
 }
+
+/** Every tag whose commit HEAD contains (`git tag --merged HEAD`), including any tag on HEAD itself. Empty when the repository has no tags. */
+export function listTagsMergedIntoHead(repoRoot: string): string[] {
+  const output = runGit(repoRoot, ['tag', '--merged', 'HEAD']);
+  return output
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+}

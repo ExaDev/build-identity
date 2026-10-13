@@ -3,8 +3,8 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import type { Command } from 'commander';
 import { createProgram, DEFAULT_ENV_PREFIX, runBuildIdentity, type CliFlags } from './cli-program';
-import { defaultTagName } from './package-version';
 import type { ReleaseRule } from './predict-next-version';
+import { DEFAULT_TAG_TEMPLATE } from './release-tags';
 import { createTestRepo, type TestRepo } from './test-repo';
 
 const COMMIT_TYPE_RULES: readonly ReleaseRule[] = [
@@ -28,7 +28,7 @@ async function parseArgs(...args: readonly string[]): Promise<Command> {
 
 function flags(overrides: Partial<CliFlags> & Pick<CliFlags, 'repo' | 'root'>): CliFlags {
   return {
-    tagName: defaultTagName,
+    tagName: DEFAULT_TAG_TEMPLATE,
     predict: undefined,
     releaseRules: undefined,
     releaseRulesFile: undefined,
@@ -48,7 +48,7 @@ describe('createProgram defaults', () => {
   });
 
   it('defaults the tag name to the same v-prefixed convention the library itself defaults to', () => {
-    expect(createProgram().opts<CliFlags>().tagName('1.4.0')).toBe(defaultTagName('1.4.0'));
+    expect(createProgram().opts<CliFlags>().tagName).toBe(DEFAULT_TAG_TEMPLATE);
   });
 });
 
@@ -66,7 +66,11 @@ describe('createProgram argument parsing', () => {
   });
 
   it('rejects a --tag-name template with no {version} placeholder', async () => {
-    await expect(parseArgs('--repo', 'exadev/example', '--tag-name', 'latest')).rejects.toThrow(/\{version\}/);
+    await expect(parseArgs('--repo', 'exadev/example', '--tag-name', 'latest')).rejects.toThrow(/--tag-name.*\{version\}/);
+  });
+
+  it('rejects a --tag-name template with the {version} placeholder more than once, since a tag could not be read back into one version', async () => {
+    await expect(parseArgs('--repo', 'exadev/example', '--tag-name', '{version}-{version}')).rejects.toThrow(/--tag-name.*exactly once/);
   });
 
   it('rejects --release-rules that is not valid JSON', async () => {
@@ -77,11 +81,11 @@ describe('createProgram argument parsing', () => {
     await expect(parseArgs('--repo', 'exadev/example', '--release-rules', '[{"type":"feat","release":"huge"}]')).rejects.toThrow(/entry 0 must be/);
   });
 
-  it('turns a --tag-name template into the substituting function both library calls receive', () => {
+  it('passes a valid --tag-name template through unchanged, for both library calls to read tags with', () => {
     // parseOptions rather than parseAsync: this asserts the option coercion alone, without also running the action against a real repository.
     const program = silentProgram();
     program.parseOptions(['--repo', 'exadev/example', '--tag-name', 'release-{version}']);
-    expect(program.opts<CliFlags>().tagName('2.0.0')).toBe('release-2.0.0');
+    expect(program.opts<CliFlags>().tagName).toBe('release-{version}');
   });
 });
 
@@ -111,7 +115,7 @@ describe('runBuildIdentity', () => {
     repo.tag('release-2.0.0');
     repo.commit('feat: add a thing');
     const output = await runBuildIdentity(
-      flags({ repo: 'exadev/example', root: repo.root, tagName: (version) => `release-${version}`, predict: true, releaseRules: COMMIT_TYPE_RULES }),
+      flags({ repo: 'exadev/example', root: repo.root, tagName: 'release-{version}', predict: true, releaseRules: COMMIT_TYPE_RULES }),
     );
     expect(JSON.parse(output)).toMatchObject({ kind: 'predicted', version: '2.1.0' });
   });

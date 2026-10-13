@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { getHeadCommit, tagPointsAtHead } from './git';
+import { getHeadCommit, listTagsMergedIntoHead, tagPointsAtHead } from './git';
 import { createTestRepo, type TestRepo } from './test-repo';
 
 describe('getHeadCommit', () => {
@@ -82,5 +82,27 @@ describe('tagPointsAtHead', () => {
     repo.tag('v1.0.0');
     repo.commit();
     expect(tagPointsAtHead(repo.root, 'v1.0.0')).toBe(false);
+  });
+});
+
+describe('listTagsMergedIntoHead', () => {
+  let repo: TestRepo | undefined;
+
+  afterEach(() => {
+    repo?.cleanup();
+    repo = undefined;
+  });
+
+  it('is empty in a repository with no tags', () => {
+    repo = createTestRepo();
+    expect(listTagsMergedIntoHead(repo.root)).toEqual([]);
+  });
+
+  it('lists tags on HEAD and on its ancestors', () => {
+    repo = createTestRepo();
+    repo.tag('v1.0.0');
+    repo.commit();
+    repo.tag('v1.1.0');
+    expect([...listTagsMergedIntoHead(repo.root)].sort()).toEqual(['v1.0.0', 'v1.1.0']);
   });
 });
