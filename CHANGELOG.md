@@ -1,3 +1,24 @@
+# [3.0.0](https://github.com/ExaDev/build-identity/compare/v2.2.3...v3.0.0) (2026-10-13)
+
+
+* feat!: find the last release from tags, not package.json ([cc229ce](https://github.com/ExaDev/build-identity/commit/cc229ce159aa49e074f0473632fdde83172d7a6c))
+
+
+### Bug Fixes
+
+* refuse to predict from a shallow or tagless clone ([7fcaae2](https://github.com/ExaDev/build-identity/commit/7fcaae216e9b995cc83d902119e512c62ed8deb6))
+* report a release whenever a release tag points at HEAD ([8bcf97a](https://github.com/ExaDev/build-identity/commit/8bcf97aeb603a8f9c0f88923ab220430b5729834))
+* run git against repoRoot even when a hook exports GIT_DIR ([72fcff0](https://github.com/ExaDev/build-identity/commit/72fcff037527acff082ecef253addfeb0b2f3d3d))
+
+
+### BREAKING CHANGES
+
+* the tagName function option of resolveBuildIdentity
+and predictNextVersion is replaced by tagTemplate, a string holding
+{version} exactly once (the CLI's --tag-name template, unchanged).
+readPackageVersion and package.json reading are removed; findLastRelease
+gives the last released version from tags instead.
+
 ## [2.2.3](https://github.com/ExaDev/build-identity/compare/v2.2.2...v2.2.3) (2026-10-06)
 
 ## [2.2.2](https://github.com/ExaDev/build-identity/compare/v2.2.1...v2.2.2) (2026-10-02)
