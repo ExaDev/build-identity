@@ -87,6 +87,42 @@ describe('resolveBuildIdentity', () => {
     expect(resolveBuildIdentity(repo.root, 'exadev/example')).toMatchObject({ kind: 'release', version: '1.0.0' });
   });
 
+  it('reports a release when a lower release tag points at HEAD while a higher one is reachable, as after a backport', () => {
+    repo = createTestRepo();
+    repo.tag('v1.10.0');
+    repo.commit('fix: a backport');
+    repo.tag('v1.9.1');
+    expect(resolveBuildIdentity(repo.root, 'exadev/example')).toMatchObject({ kind: 'release', version: '1.9.1', url: 'https://github.com/exadev/example/releases/tag/v1.9.1' });
+  });
+
+  it('reports the highest version when several release tags point at HEAD', () => {
+    repo = createTestRepo();
+    repo.tag('v1.9.0');
+    repo.tag('v1.10.0');
+    expect(resolveBuildIdentity(repo.root, 'exadev/example')).toMatchObject({ kind: 'release', version: '1.10.0' });
+  });
+
+  it('reports a release for an annotated release tag at HEAD', () => {
+    repo = createTestRepo();
+    repo.git('tag', '--annotate', '--message', 'Release 2.3.4', 'v2.3.4');
+    expect(resolveBuildIdentity(repo.root, 'exadev/example')).toMatchObject({ kind: 'release', version: '2.3.4' });
+  });
+
+  it('reports the commit, needing no history beyond HEAD and never throwing, in a shallow clone made without tags', () => {
+    repo = createTestRepo();
+    repo.tag('v1.0.0');
+    const headSha = repo.commit('feat: after the release');
+    const clone = repo.shallowClone();
+    expect(resolveBuildIdentity(clone, 'exadev/example')).toMatchObject({ kind: 'commit', commit: headSha, url: `https://github.com/exadev/example/commit/${headSha}` });
+  });
+
+  it('reports the commit, never throwing, in a full clone made without tags', () => {
+    repo = createTestRepo();
+    repo.tag('v1.0.0');
+    const headSha = repo.commit('feat: after the release');
+    expect(resolveBuildIdentity(repo.taglessClone(), 'exadev/example')).toMatchObject({ kind: 'commit', commit: headSha });
+  });
+
   it('never treats a tag outside the template or a prerelease tag on HEAD as a release', () => {
     repo = createTestRepo();
     repo.tag('latest');
@@ -94,7 +130,7 @@ describe('resolveBuildIdentity', () => {
     expect(resolveBuildIdentity(repo.root, 'exadev/example').kind).toBe('commit');
   });
 
-    it('throws for a repoSlug that is not a real "owner/repo" slug', () => {
+  it('throws for a repoSlug that is not a real "owner/repo" slug', () => {
     repo = createTestRepo({ name: 'fixture', version: '1.0.0' });
     const { root } = repo;
     expect(() => resolveBuildIdentity(root, 'not-a-slug')).toThrow(/owner\/repo/);

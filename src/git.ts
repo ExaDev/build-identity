@@ -31,15 +31,13 @@ export function getHeadCommit(repoRoot: string): HeadCommit {
   return { fullSha, shortSha, date };
 }
 
-/**
- * True only if `tagName` both exists and points at the exact commit HEAD is on right now. Uses `git tag --list <tag> --points-at HEAD`, which returns `tagName` itself when both hold and nothing otherwise -- there is no separate "tag exists but points elsewhere" case to confuse this with.
- */
-export function tagPointsAtHead(repoRoot: string, tagName: string): boolean {
-  const output = runGit(repoRoot, ['tag', '--list', tagName, '--points-at', 'HEAD']);
+/** Every tag that points at the exact commit HEAD is on right now, lightweight or annotated (`git tag --points-at` peels an annotated tag to its commit). Needs no history beyond HEAD itself, so it answers the same in a shallow clone. */
+export function listTagsPointingAtHead(repoRoot: string): string[] {
+  const output = runGit(repoRoot, ['tag', '--list', '--points-at', 'HEAD']);
   return output
     .split('\n')
     .map((line) => line.trim())
-    .includes(tagName);
+    .filter((line) => line.length > 0);
 }
 
 /** Every tag whose commit HEAD contains (`git tag --merged HEAD`), including any tag on HEAD itself. Empty when the repository has no tags. */
