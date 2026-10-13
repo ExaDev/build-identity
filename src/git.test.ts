@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { getHeadCommit, gitEnvironment, listTagsMergedIntoHead, tagPointsAtHead } from './git';
+import { getHeadCommit, gitEnvironment, listTagsMergedIntoHead, listTagsPointingAtHead } from './git';
 import { createTestRepo, type TestRepo } from './test-repo';
 
 describe('getHeadCommit', () => {
@@ -58,7 +58,7 @@ describe('getHeadCommit', () => {
   });
 });
 
-describe('tagPointsAtHead', () => {
+describe('listTagsPointingAtHead', () => {
   let repo: TestRepo | undefined;
 
   afterEach(() => {
@@ -66,22 +66,24 @@ describe('tagPointsAtHead', () => {
     repo = undefined;
   });
 
-  it('is false when the tag does not exist at all', () => {
+  it('is empty when no tag points at HEAD', () => {
     repo = createTestRepo();
-    expect(tagPointsAtHead(repo.root, 'v9.9.9')).toBe(false);
+    expect(listTagsPointingAtHead(repo.root)).toEqual([]);
   });
 
-  it('is true when the tag exists and points at HEAD', () => {
+  it('lists every tag at HEAD, lightweight and annotated', () => {
     repo = createTestRepo();
     repo.tag('v1.0.0');
-    expect(tagPointsAtHead(repo.root, 'v1.0.0')).toBe(true);
+    repo.git('tag', '--annotate', '--message', 'annotated', 'v1.0.1');
+    expect(listTagsPointingAtHead(repo.root).sort()).toEqual(['v1.0.0', 'v1.0.1']);
   });
 
-  it('is false when the tag exists but HEAD has since moved past it -- the case that must never be mistaken for a release', () => {
+  it('leaves out a tag once HEAD has moved past it, the case that must never be mistaken for a release', () => {
     repo = createTestRepo();
     repo.tag('v1.0.0');
     repo.commit();
-    expect(tagPointsAtHead(repo.root, 'v1.0.0')).toBe(false);
+    repo.tag('v1.1.0');
+    expect(listTagsPointingAtHead(repo.root)).toEqual(['v1.1.0']);
   });
 });
 
