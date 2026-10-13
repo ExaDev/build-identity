@@ -41,11 +41,13 @@ interface ResolveBuildIdentityOptions {
 }
 ```
 
-- **`repoRoot`** -- path to the git working tree to inspect. The released version comes from its release tags (see [`findLastRelease`](#findlastreleasereporoot-tagtemplate)); no file in it is read.
+- **`repoRoot`**: path to the git working tree to inspect. The released version comes from the release tag on `HEAD`; no file in it is read.
 - **`repoSlug`** -- the GitHub `"owner/repo"` slug used to build both the release and commit URLs (e.g. `"exadev/build-identity"`).
 - **`options.tagTemplate`** -- the tag name marking a release, with `{version}` standing in for the version exactly once. The default is the common `v{version}` convention (`"1.4.0"` -> `"v1.4.0"`), the same as semantic-release's default `tagFormat`; pass your own for a repo that tags differently (a bare version, a package-scoped prefix in a monorepo, and so on). Tags are read back through it, so a tag that does not fit it, or that carries a prerelease version, is never a release.
 
-**The one property this function exists to guarantee:** it returns `kind: 'release'` if, and only if, the last release reachable from `HEAD` (the highest release tag `git tag --merged HEAD` lists) provably points at the exact commit `HEAD` is on right now -- checked live against git (`git tag --list <tag> --points-at HEAD`), never inferred from a version in `package.json`, an environment variable, or any other proxy that could be true before the tag actually exists. The version is read from that tag, so a repository whose releases are only tags (no release commit bumping `package.json`) resolves correctly. Every other case, including a commit sitting directly on top of the commit a release will eventually tag, returns `kind: 'commit'` instead, with `version` set to the short commit hash (there is no released version to show yet) and `url` pointing at that exact commit's permalink (using the full SHA, not the short one, so the link stays a valid, unambiguous permalink).
+**The one property this function exists to guarantee:** it returns `kind: 'release'` if, and only if, a release tag provably points at the exact commit `HEAD` is on right now, checked live against git (`git tag --points-at HEAD`), never inferred from a version in `package.json`, an environment variable, or any other proxy that could be true before the tag actually exists. The version is read from that tag, so a repository whose releases are only tags (no release commit bumping `package.json`) resolves correctly; with several release tags on `HEAD` the highest wins, and a lower one on `HEAD` (a backport tagged after a newer release) is still a release. Every other case, including a commit sitting directly on top of the commit a release will eventually tag, returns `kind: 'commit'` instead, with `version` set to the short commit hash (there is no released version to show yet) and `url` pointing at that exact commit's permalink (using the full SHA, not the short one, so the link stays a valid, unambiguous permalink).
+
+Only `HEAD` itself is inspected, never its history, so this works in a shallow clone and never throws for a missing tag. A clone made without tags (a default `actions/checkout`) has no tag at `HEAD` to find and reports `kind: 'commit'` even on a released commit: the honest answer for a release git cannot see. Check out with `fetch-depth: 0` where a released commit should report as one.
 
 **`commit`** is always the full git commit SHA of the exact commit this build resolves to, in both branches -- present so a caller who needs the raw SHA (to compare two builds for identity, or to construct its own link) never has to parse it back out of `url`, which never carries one at all in the `'release'` case.
 
@@ -94,9 +96,9 @@ Predicts the version a repo's next release would be, from the commits since its 
 
 `releaseRules` is your own repo's commit-type-to-release-level convention (the same shape `@semantic-release/commit-analyzer`'s own `releaseRules` option takes) -- this package hardcodes none of its own.
 
-The last release is the one [`findLastRelease`](#findlastreleasereporoot-tagtemplate) finds from the tags, and only the commits since its tag are analysed. Before a repository's first release, every commit in `HEAD`'s history is analysed and a release-worthy one predicts `1.0.0` (`FIRST_RELEASE_VERSION`), as semantic-release does.
+The last release is the one [`findLastRelease`](#findlastreleasereporoot-tagtemplate) finds from the tags, and only the commits since its tag are analysed. It needs the full history and tags: run it on a checkout made with `fetch-depth: 0`.
 
-Returns `undefined` when there is genuinely no predicted release -- no commits since the last tag, or none of them are release-worthy -- the same "nothing to report" case `resolvePredictedIdentity` already treats as valid, not an error. Throws for a genuine setup problem instead of defaulting: `repoRoot` isn't a git repository, or the tag template is malformed.
+Returns `undefined` when there is genuinely no predicted release -- no commits since the last tag, or none of them are release-worthy -- the same "nothing to report" case `resolvePredictedIdentity` already treats as valid, not an error. Throws for a genuine setup problem instead of predicting from a guess, exactly as `findLastRelease` does: a shallow clone, no release tag reachable from `HEAD`, `repoRoot` isn't a git repository, or the tag template is malformed. A wrong base version would predict a release that may already exist as a tag, so there is no fallback, not even a first-release `1.0.0`.
 
 **`analyzeCommits`** is supplied by the caller rather than imported by this package: `@semantic-release/commit-analyzer` ships no type declarations and `analyzeCommits` isn't part of its documented public API, so loading it safely is a concern specific to your own toolchain. `predictNextVersion` itself stays a pure function of its arguments -- easy to test with a fake analyzer.
 
@@ -127,17 +129,23 @@ const identity = resolvePredictedIdentity(build, predictedVersion);
 ```ts
 interface LastRelease { version: string; tagName: string }
 
-function findLastRelease(repoRoot: string, tagTemplate?: string): LastRelease | undefined; // tagTemplate defaults to DEFAULT_TAG_TEMPLATE, 'v{version}'
+function findLastRelease(repoRoot: string, tagTemplate?: string): LastRelease; // tagTemplate defaults to DEFAULT_TAG_TEMPLATE, 'v{version}'
 ```
 
-The last released version and the tag marking it, found the way semantic-release's own core finds it: the highest `major.minor.patch` version among the tags reachable from `HEAD` (`git tag --merged HEAD`) that fit `tagTemplate`. A prerelease tag, a tag in another format and a tag on a commit `HEAD` does not contain (a release cut from another branch) are never the last release. Returns `undefined` before a repository's first release. `resolveBuildIdentity` and `predictNextVersion` both start from this.
+The last released version and the tag marking it, found the way semantic-release's own core finds it: the highest `major.minor.patch` version among the tags reachable from `HEAD` (`git tag --merged HEAD`) that fit `tagTemplate`. A prerelease tag, a tag in another format and a tag on a commit `HEAD` does not contain (a release cut from another branch) are never the last release. `predictNextVersion` starts from this.
 
-Reach for it directly when you want the last released semantic version regardless of whether this checkout happens to be sitting on its tag: an OpenAPI document's `info.version`, a user agent string, anything wanting a stable semver rather than an honest answer about what is deployed. It needs the tags in the checkout, so a shallow CI clone has to fetch them.
+Reach for it directly when you want the last released semantic version regardless of whether this checkout happens to be sitting on its tag: an OpenAPI document's `info.version`, a user agent string, anything wanting a stable semver rather than an honest answer about what is deployed.
+
+It needs the full history and tags (`actions/checkout` with `fetch-depth: 0`), and throws rather than inventing a version when it cannot prove one, saying what to do:
+
+- **A shallow clone**, even one with some tags: a higher release tag could sit beyond the cut. Fetch full history and tags first (`git fetch --unshallow --tags`).
+- **No release tag reachable from `HEAD`**: the clone was made without its tags (`git fetch --tags`), the template does not match how the repository tags, or it has never released.
+- `repoRoot` isn't a git repository, or the template is malformed.
 
 ```ts
 import { findLastRelease, resolveBuildIdentity } from '@exadev/build-identity';
 
-const appVersion = findLastRelease(process.cwd())?.version; // "1.4.0", tagged or not
+const appVersion = findLastRelease(process.cwd()).version; // "1.4.0", tagged or not
 const build = resolveBuildIdentity(process.cwd(), 'exadev/example'); // "1.4.0" or "a1b2c3d"
 ```
 
@@ -184,7 +192,7 @@ Those are exactly the five fields `DisplayIdentity` declares, under exactly its 
 
 ### Prediction
 
-`--predict` adds the `predictNextVersion` step, turning an unreleased build's short commit hash into the version that commit would release as. It is opt-in rather than automatic because it costs something real: it needs `@semantic-release/commit-analyzer` (this package's optional peer dependency) to be installed, and it reads every commit since the last tag.
+`--predict` adds the `predictNextVersion` step, turning an unreleased build's short commit hash into the version that commit would release as. It is opt-in rather than automatic because it costs something real: it needs `@semantic-release/commit-analyzer` (this package's optional peer dependency) to be installed, and it reads every commit since the last release tag, so it needs the full history and tags (`actions/checkout` with `fetch-depth: 0`) and fails in a shallow clone.
 
 Release rules are yours, not this package's -- your repo's commit-type-to-release-level convention is real configuration, and nothing here invents a default for it. Pass them inline, or from a file when quoting a full rule set through YAML and a shell gets unreadable:
 

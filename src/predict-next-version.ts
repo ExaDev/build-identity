@@ -2,9 +2,6 @@ import { execFileSync } from 'node:child_process';
 import { gitEnvironment } from './git';
 import { DEFAULT_TAG_TEMPLATE, findLastRelease } from './release-tags';
 
-/** The version semantic-release gives a repository's first release, whatever the commits since the start of its history call for. */
-export const FIRST_RELEASE_VERSION = '1.0.0';
-
 const GIT_FORMAT = '%x00%H%x00%B';
 const FIELD_SEP = '\x00';
 
@@ -26,10 +23,9 @@ export function parseGitLogOutput(raw: string): RawCommit[] {
   return commits;
 }
 
-/** The commits HEAD has that `sinceTag` does not, or every commit in HEAD's history when there is no earlier release to start from. */
-function readCommitsSince(repoRoot: string, sinceTag: string | undefined): RawCommit[] {
-  const range = sinceTag === undefined ? 'HEAD' : `${sinceTag}..HEAD`;
-  const raw = execFileSync('git', ['log', range, `--format=${GIT_FORMAT}`], { cwd: repoRoot, encoding: 'utf-8', env: gitEnvironment() });
+/** The commits HEAD has that the tag `sinceTag` does not. The range names `refs/tags/` in full, so a branch that happens to share the tag's name can never be taken for it. */
+function readCommitsSince(repoRoot: string, sinceTag: string): RawCommit[] {
+  const raw = execFileSync('git', ['log', `refs/tags/${sinceTag}..HEAD`, `--format=${GIT_FORMAT}`], { cwd: repoRoot, encoding: 'utf-8', env: gitEnvironment() });
   return parseGitLogOutput(raw);
 }
 
@@ -67,9 +63,9 @@ const NOOP_LOGGER = { log: (): void => undefined, error: (): void => undefined }
 /**
  * Predicts the version this repo's next release would be, from commits since the last tagged release -- WITHOUT running semantic-release's own top-level orchestrator. That orchestrator's core (not any plugin) verifies push access to the remote as part of resolving branches before analysis ever runs: genuinely slow, and needing credentials a prediction has no real reason to hold. This calls `analyzeCommits` directly instead -- no network, no registry lookups -- exactly the same hook `@semantic-release/commit-analyzer` exports, supplied by the caller (see `AnalyzeCommits`'s own doc comment for why this package never imports that module itself).
  *
- * The last release is the highest release tag reachable from HEAD (`findLastRelease`), never a version recorded in a file, so a repository whose releases are only tags (no release commit bumping `package.json`) predicts from its real last release. With no release tag reachable at all, every commit in HEAD's history is analysed and a release-worthy one predicts `FIRST_RELEASE_VERSION`, as semantic-release does for a first release.
+ * The last release is the highest release tag reachable from HEAD (`findLastRelease`), never a version recorded in a file, so a repository whose releases are only tags (no release commit bumping `package.json`) predicts from its real last release. Only the commits since that tag are analysed, and the prediction bumps its version.
  *
- * Returns `undefined` when there is genuinely no predicted release -- no commits since the last tag, or none of them are release-worthy under `releaseRules` -- the same "nothing to report" case `resolvePredictedIdentity` already treats as valid, not an error. Throws for a genuine setup problem instead of defaulting: `repoRoot` isn't a git repository, or the tag template is malformed.
+ * Returns `undefined` when there is genuinely no predicted release -- no commits since the last tag, or none of them are release-worthy under `releaseRules` -- the same "nothing to report" case `resolvePredictedIdentity` already treats as valid, not an error. Throws for a genuine setup problem instead of predicting from a guess, as `findLastRelease` does: `repoRoot` is a shallow clone, has no release tag reachable from HEAD (a clone made without its tags, or no release yet), isn't a git repository, or the tag template is malformed. Run it on a checkout with the full history and tags (`actions/checkout` with `fetch-depth: 0`).
  * @param repoRoot - Path to the git working tree to inspect.
  * @param releaseRules - The commit-analyzer release rules this repo's own commit convention defines.
  * @param analyzeCommits - `@semantic-release/commit-analyzer`'s own `analyzeCommits` export -- `loadCommitAnalyzer` (`./load-commit-analyzer`) is the tested way to obtain one.
@@ -78,7 +74,7 @@ export async function predictNextVersion(repoRoot: string, releaseRules: readonl
   const lastRelease = findLastRelease(repoRoot, options.tagTemplate ?? DEFAULT_TAG_TEMPLATE);
   const logger = options.logger ?? NOOP_LOGGER;
 
-  const commits = readCommitsSince(repoRoot, lastRelease?.tagName);
+  const commits = readCommitsSince(repoRoot, lastRelease.tagName);
   if (commits.length === 0) {
     return undefined;
   }
@@ -89,5 +85,5 @@ export async function predictNextVersion(repoRoot: string, releaseRules: readonl
     return undefined;
   }
 
-  return lastRelease === undefined ? FIRST_RELEASE_VERSION : bumpVersion(lastRelease.version, releaseType);
+  return bumpVersion(lastRelease.version, releaseType);
 }
