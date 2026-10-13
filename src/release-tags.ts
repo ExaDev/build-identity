@@ -1,4 +1,4 @@
-import { listTagsMergedIntoHead } from './git';
+import { isShallowRepository, listTagsMergedIntoHead } from './git';
 
 /** Stands in for the version inside a tag template. The same placeholder the CLI's `--tag-name` takes, so one template string works in both places. */
 export const VERSION_PLACEHOLDER = '{version}';
@@ -60,10 +60,27 @@ export function highestReleaseTag(template: string, tagNames: readonly string[])
 }
 
 /**
- * Finds the last release the way semantic-release's own core does: the highest release version among the tags in `template` that are reachable from HEAD (`git tag --merged HEAD`). A tag on a commit HEAD does not contain, such as a release cut from another branch, is never the last release of this one. Returns `undefined` when no release tag is reachable, the state before a repository's first release. Throws whatever `git` throws when `repoRoot` is not a git repository.
+ * Finds the last release the way semantic-release's own core does: the highest release version among the tags in `template` that are reachable from HEAD (`git tag --merged HEAD`). A tag on a commit HEAD does not contain, such as a release cut from another branch, is never the last release of this one.
+ *
+ * Throws rather than returning a guess, saying what to do, because a caller predicting the next version from a wrong base would name a version that may already exist as a tag:
+ * - in a shallow clone, even when some release tag is visible, since a higher one could sit beyond the cut;
+ * - when no release tag is reachable from HEAD, which is what a clone made without its tags looks like, as much as a repository that has never released;
+ * - when `repoRoot` is not a git repository or `template` is malformed.
  * @param repoRoot - Path to the git working tree to inspect.
  * @param template - The tag template releases are tagged with; defaults to `v{version}`.
  */
-export function findLastRelease(repoRoot: string, template: string = DEFAULT_TAG_TEMPLATE): LastRelease | undefined {
-  return highestReleaseTag(template, listTagsMergedIntoHead(repoRoot));
+export function findLastRelease(repoRoot: string, template: string = DEFAULT_TAG_TEMPLATE): LastRelease {
+  assertTagTemplate(template);
+  if (isShallowRepository(repoRoot)) {
+    throw new Error(
+      `${repoRoot} is a shallow clone, so the last release tag reachable from HEAD cannot be determined: fetch the full history and tags first (git fetch --unshallow --tags, or actions/checkout with fetch-depth: 0)`,
+    );
+  }
+  const release = highestReleaseTag(template, listTagsMergedIntoHead(repoRoot));
+  if (release === undefined) {
+    throw new Error(
+      `no tag reachable from HEAD in ${repoRoot} marks a release under the tag template ${JSON.stringify(template)}: if the repository has released before, fetch its tags (git fetch --tags, or actions/checkout with fetch-depth: 0) or pass the template it actually tags with`,
+    );
+  }
+  return release;
 }

@@ -40,6 +40,11 @@ export function listTagsPointingAtHead(repoRoot: string): string[] {
     .filter((line) => line.length > 0);
 }
 
+/** True when `repoRoot` is a shallow clone, whose history stops short of the root commit and so cannot show every tag HEAD descends from. */
+export function isShallowRepository(repoRoot: string): boolean {
+  return runGit(repoRoot, ['rev-parse', '--is-shallow-repository']) === 'true';
+}
+
 /** Every tag whose commit HEAD contains (`git tag --merged HEAD`), including any tag on HEAD itself. Empty when the repository has no tags. */
 export function listTagsMergedIntoHead(repoRoot: string): string[] {
   const output = runGit(repoRoot, ['tag', '--merged', 'HEAD']);

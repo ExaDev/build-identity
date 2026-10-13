@@ -115,6 +115,19 @@ describe('build-identity CLI, as actually built and executed', () => {
     expect(result.stderr).toContain('build-identity:');
   });
 
+  it('exits non-zero, saying to fetch full history and tags, when --predict runs in a shallow clone', () => {
+    repo = createTestRepo();
+    repo.tag('v1.4.0');
+    repo.commit('feat: add a thing');
+    const clone = repo.shallowClone();
+
+    const result = runCli('--repo', 'exadev/example', '--root', clone, '--predict', '--release-rules', RULES);
+
+    expect(result.status).toBe(1);
+    expect(result.stdout).toBe('');
+    expect(result.stderr).toContain('fetch-depth: 0');
+  });
+
   it('exits non-zero when --predict is given with no release rules', () => {
     repo = createTestRepo({ name: 'fixture', version: '1.4.0' });
 

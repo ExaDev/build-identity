@@ -1,5 +1,5 @@
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
-import { bumpVersion, FIRST_RELEASE_VERSION, isReleaseLevel, parseGitLogOutput, predictNextVersion, type AnalyzeCommits, type ReleaseRule } from './predict-next-version';
+import { bumpVersion, isReleaseLevel, parseGitLogOutput, predictNextVersion, type AnalyzeCommits, type ReleaseRule } from './predict-next-version';
 import { loadCommitAnalyzer } from './load-commit-analyzer';
 import { createTestRepo, type TestRepo } from './test-repo';
 
@@ -148,11 +148,28 @@ describe('predictNextVersion', () => {
     await expect(predictNextVersion(repo.root, COMMIT_TYPE_RULES, analyzeCommits)).resolves.toBeUndefined();
   });
 
-  it('predicts the first release from the whole history when no release tag exists yet', async () => {
+  it('throws, rather than predicting from a guessed base, when no release tag is reachable from HEAD', async () => {
     repo = createTestRepo();
-    repo.commit('feat: the first feature');
+    repo.commit('feat: unreleased work');
+    const { root } = repo;
 
-    await expect(predictNextVersion(repo.root, COMMIT_TYPE_RULES, analyzeCommits)).resolves.toBe(FIRST_RELEASE_VERSION);
+    await expect(predictNextVersion(root, COMMIT_TYPE_RULES, analyzeCommits)).rejects.toThrow(/no tag reachable from HEAD/);
+  });
+
+  it('throws, rather than predicting 1.0.0, in a full clone made without tags of a repository that has released', async () => {
+    repo = createTestRepo();
+    repo.tag('v4.2.0');
+    repo.commit('feat: after the release');
+
+    await expect(predictNextVersion(repo.taglessClone(), COMMIT_TYPE_RULES, analyzeCommits)).rejects.toThrow(/git fetch --tags/);
+  });
+
+  it('throws, saying to fetch full history and tags, in a shallow clone made without tags', async () => {
+    repo = createTestRepo();
+    repo.tag('v4.2.0');
+    repo.commit('feat: after the release');
+
+    await expect(predictNextVersion(repo.shallowClone(), COMMIT_TYPE_RULES, analyzeCommits)).rejects.toThrow(/shallow clone.*fetch-depth: 0/);
   });
 
   it('routes commit-analyzer narration through a caller-supplied logger', async () => {
