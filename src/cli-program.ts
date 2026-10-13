@@ -5,14 +5,12 @@ import { Command, InvalidArgumentError, Option } from 'commander';
 import { version as packageVersion } from '../package.json';
 import { formatIdentity, isEnvPrefix, isOutputFormat, OUTPUT_FORMATS, type OutputFormat } from './format-identity';
 import { loadCommitAnalyzer } from './load-commit-analyzer';
-import { defaultTagName } from './package-version';
 import { parseReleaseRules } from './parse-release-rules';
 import { predictNextVersion, type PredictNextVersionOptions, type ReleaseRule } from './predict-next-version';
+import { assertTagTemplate, DEFAULT_TAG_TEMPLATE, VERSION_PLACEHOLDER } from './release-tags';
 import { resolveBuildIdentity } from './resolve-build-identity';
 import { resolvePredictedIdentity } from './resolve-predicted-identity';
 
-const VERSION_PLACEHOLDER = '{version}';
-export const DEFAULT_TAG_TEMPLATE = `v${VERSION_PLACEHOLDER}`;
 export const DEFAULT_ENV_PREFIX = 'BUILD_';
 
 /** `predictNextVersion` narrates through a caller-supplied logger and explicitly warns against routing it to stdout, which carries the machine-readable result. `--verbose` sends it to stderr instead, so a CI step can see why a prediction came out the way it did without contaminating what the next step parses. */
@@ -26,14 +24,14 @@ function writeStderr(args: readonly unknown[]): void {
   process.stderr.write(`${format(...args)}\n`);
 }
 
-/**
- * A `{version}` template rather than a function, since a command line cannot carry one: `resolveBuildIdentity` and `predictNextVersion` are both given the same resulting function, keeping "which tag marks a release" one convention across the two calls exactly as the library's own docs advise.
- */
-function parseTagTemplate(template: string): (version: string) => string {
-  if (!template.includes(VERSION_PLACEHOLDER)) {
-    throw new InvalidArgumentError(`--tag-name must contain the ${VERSION_PLACEHOLDER} placeholder, got: ${JSON.stringify(template)}`);
+/** Validates a `--tag-name` template up front, so a malformed one is a usage error naming the flag rather than a failure from inside the library call. `resolveBuildIdentity` and `predictNextVersion` are both given the same template, keeping "which tag marks a release" one convention across the two calls exactly as the library's own docs advise. */
+function parseTagTemplate(template: string): string {
+  try {
+    assertTagTemplate(template);
+  } catch (cause) {
+    throw new InvalidArgumentError(`--tag-name: ${cause instanceof Error ? cause.message : String(cause)}`);
   }
-  return (version: string): string => template.replaceAll(VERSION_PLACEHOLDER, version);
+  return template;
 }
 
 function parseFormat(value: string): OutputFormat {
@@ -61,7 +59,7 @@ function parseInlineReleaseRules(value: string): ReleaseRule[] {
 export interface CliFlags {
   readonly repo: string;
   readonly root: string;
-  readonly tagName: (version: string) => string;
+  readonly tagName: string;
   readonly predict: boolean | undefined;
   readonly releaseRules: readonly ReleaseRule[] | undefined;
   readonly releaseRulesFile: string | undefined;
@@ -99,11 +97,11 @@ export async function runBuildIdentity(flags: CliFlags): Promise<string> {
     throw new Error('--release-rules/--release-rules-file only take effect with --predict, which was not passed');
   }
 
-  const build = resolveBuildIdentity(flags.root, flags.repo, { tagName: flags.tagName });
+  const build = resolveBuildIdentity(flags.root, flags.repo, { tagTemplate: flags.tagName });
 
   let predictedVersion: string | undefined;
   if (rules !== undefined) {
-    const options: PredictNextVersionOptions = { tagName: flags.tagName, ...(flags.verbose === true ? { logger: STDERR_LOGGER } : {}) };
+    const options: PredictNextVersionOptions = { tagTemplate: flags.tagName, ...(flags.verbose === true ? { logger: STDERR_LOGGER } : {}) };
     predictedVersion = await predictNextVersion(flags.root, rules, await loadCommitAnalyzer(), options);
   }
 
@@ -120,13 +118,12 @@ export function createProgram(): Command {
 
   program.requiredOption('--repo <owner/repo>', 'GitHub slug used to build the release and commit URLs, e.g. exadev/build-identity');
   program.addOption(
-    new Option('--root <directory>', 'git working tree to inspect; must contain package.json at its root').default(process.cwd(), 'the current working directory'),
+    new Option('--root <directory>', 'git working tree to inspect').default(process.cwd(), 'the current working directory'),
   );
-  // The default is described rather than shown: commander renders a default value through JSON.stringify, which turns the tagName function into nothing at all.
   program.addOption(
     new Option('--tag-name <template>', `tag name marking a release, with ${VERSION_PLACEHOLDER} standing in for the version`)
       .argParser(parseTagTemplate)
-      .default(defaultTagName, DEFAULT_TAG_TEMPLATE),
+      .default(DEFAULT_TAG_TEMPLATE),
   );
   program.option('--predict', "also predict the version this commit's next release would be, and show that instead of a bare commit hash when there is no release tag on HEAD");
   program.option('--release-rules <json>', 'commit-analyzer release rules for --predict, as a JSON array', parseInlineReleaseRules);

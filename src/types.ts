@@ -6,7 +6,7 @@
 export type BuildIdentity =
   | {
       readonly kind: 'release';
-      /** The released version, read from `package.json` (e.g. `"1.4.0"`). */
+      /** The released version, read from the release tag on this commit (e.g. `"1.4.0"` from `v1.4.0`). */
       readonly version: string;
       /** The tag/release page for this exact version. */
       readonly url: string;
@@ -29,9 +29,9 @@ export type BuildIdentity =
 
 export interface ResolveBuildIdentityOptions {
   /**
-   * Turns the version read from `package.json` into the git tag name that is expected to mark its release. Defaults to a `v` prefix (`"1.4.0"` -\> `"v1.4.0"`), the convention this package's own release tooling and GitHub's own release UI both use -- override it for a repo that tags releases differently (a bare version, a package-scoped prefix in a monorepo, and so on).
+   * The tag name marking a release, with `{version}` standing in for the version exactly once. Defaults to `v{version}` (`"1.4.0"` -\> `"v1.4.0"`), the convention semantic-release's own default and GitHub's own release UI both use -- override it for a repo that tags releases differently (a bare version, a package-scoped prefix in a monorepo, and so on). Releases are found by reading tags back through it, so a tag that does not fit it is never a release.
    */
-  readonly tagName?: (version: string) => string;
+  readonly tagTemplate?: string;
 }
 
 /**

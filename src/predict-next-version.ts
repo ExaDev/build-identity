@@ -1,5 +1,8 @@
 import { execFileSync } from 'node:child_process';
-import { defaultTagName, readPackageVersion } from './package-version';
+import { DEFAULT_TAG_TEMPLATE, findLastRelease } from './release-tags';
+
+/** The version semantic-release gives a repository's first release, whatever the commits since the start of its history call for. */
+export const FIRST_RELEASE_VERSION = '1.0.0';
 
 const GIT_FORMAT = '%x00%H%x00%B';
 const FIELD_SEP = '\x00';
@@ -22,8 +25,10 @@ export function parseGitLogOutput(raw: string): RawCommit[] {
   return commits;
 }
 
-function readCommitsSince(repoRoot: string, sinceTag: string): RawCommit[] {
-  const raw = execFileSync('git', ['log', `${sinceTag}..HEAD`, `--format=${GIT_FORMAT}`], { cwd: repoRoot, encoding: 'utf-8' });
+/** The commits HEAD has that `sinceTag` does not, or every commit in HEAD's history when there is no earlier release to start from. */
+function readCommitsSince(repoRoot: string, sinceTag: string | undefined): RawCommit[] {
+  const range = sinceTag === undefined ? 'HEAD' : `${sinceTag}..HEAD`;
+  const raw = execFileSync('git', ['log', range, `--format=${GIT_FORMAT}`], { cwd: repoRoot, encoding: 'utf-8' });
   return parseGitLogOutput(raw);
 }
 
@@ -50,8 +55,8 @@ export function bumpVersion(version: string, releaseType: ReleaseLevel): string 
 }
 
 export interface PredictNextVersionOptions {
-  /** Matches `resolveBuildIdentity`'s own option of the same name -- pass the same function to both when a repo tags non-default, so "which tag marks the last release" stays one convention rather than two that could drift apart. Defaults to the `v${version}` convention. */
-  tagName?: (version: string) => string;
+  /** Matches `resolveBuildIdentity`'s own option of the same name -- pass the same template to both when a repo tags non-default, so "which tag marks the last release" stays one convention rather than two that could drift apart. Defaults to `v{version}`. */
+  tagTemplate?: string;
   /** Receives `@semantic-release/commit-analyzer`'s own per-commit narration (e.g. "Analyzing commit: ...", "The release type for the commit is minor"). Defaults to discarding it. Pass your own to route it to stderr or a real logger -- never stdout, so a caller parsing a single predicted-version line from this process's own stdout is never at risk of it being contaminated. */
   logger?: { log: (...args: readonly unknown[]) => void; error: (...args: readonly unknown[]) => void };
 }
@@ -61,17 +66,18 @@ const NOOP_LOGGER = { log: (): void => undefined, error: (): void => undefined }
 /**
  * Predicts the version this repo's next release would be, from commits since the last tagged release -- WITHOUT running semantic-release's own top-level orchestrator. That orchestrator's core (not any plugin) verifies push access to the remote as part of resolving branches before analysis ever runs: genuinely slow, and needing credentials a prediction has no real reason to hold. This calls `analyzeCommits` directly instead -- no network, no registry lookups -- exactly the same hook `@semantic-release/commit-analyzer` exports, supplied by the caller (see `AnalyzeCommits`'s own doc comment for why this package never imports that module itself).
  *
- * Returns `undefined` when there is genuinely no predicted release -- no commits since the last tag, or none of them are release-worthy under `releaseRules` -- the same "nothing to report" case `resolvePredictedIdentity` already treats as valid, not an error. Throws for a genuine setup problem instead of defaulting: `repoRoot` isn't a git repository, or `package.json` has no usable version.
- * @param repoRoot - Path to the git working tree to inspect (must contain `package.json` at its root, same as `resolveBuildIdentity`).
+ * The last release is the highest release tag reachable from HEAD (`findLastRelease`), never a version recorded in a file, so a repository whose releases are only tags (no release commit bumping `package.json`) predicts from its real last release. With no release tag reachable at all, every commit in HEAD's history is analysed and a release-worthy one predicts `FIRST_RELEASE_VERSION`, as semantic-release does for a first release.
+ *
+ * Returns `undefined` when there is genuinely no predicted release -- no commits since the last tag, or none of them are release-worthy under `releaseRules` -- the same "nothing to report" case `resolvePredictedIdentity` already treats as valid, not an error. Throws for a genuine setup problem instead of defaulting: `repoRoot` isn't a git repository, or the tag template is malformed.
+ * @param repoRoot - Path to the git working tree to inspect.
  * @param releaseRules - The commit-analyzer release rules this repo's own commit convention defines.
  * @param analyzeCommits - `@semantic-release/commit-analyzer`'s own `analyzeCommits` export -- `loadCommitAnalyzer` (`./load-commit-analyzer`) is the tested way to obtain one.
  */
 export async function predictNextVersion(repoRoot: string, releaseRules: readonly ReleaseRule[], analyzeCommits: AnalyzeCommits, options: PredictNextVersionOptions = {}): Promise<string | undefined> {
-  const lastVersion = readPackageVersion(repoRoot);
-  const tagName = (options.tagName ?? defaultTagName)(lastVersion);
+  const lastRelease = findLastRelease(repoRoot, options.tagTemplate ?? DEFAULT_TAG_TEMPLATE);
   const logger = options.logger ?? NOOP_LOGGER;
 
-  const commits = readCommitsSince(repoRoot, tagName);
+  const commits = readCommitsSince(repoRoot, lastRelease?.tagName);
   if (commits.length === 0) {
     return undefined;
   }
@@ -82,5 +88,5 @@ export async function predictNextVersion(repoRoot: string, releaseRules: readonl
     return undefined;
   }
 
-  return bumpVersion(lastVersion, releaseType);
+  return lastRelease === undefined ? FIRST_RELEASE_VERSION : bumpVersion(lastRelease.version, releaseType);
 }

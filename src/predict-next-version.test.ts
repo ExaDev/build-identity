@@ -1,5 +1,5 @@
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
-import { bumpVersion, isReleaseLevel, parseGitLogOutput, predictNextVersion, type AnalyzeCommits, type ReleaseRule } from './predict-next-version';
+import { bumpVersion, FIRST_RELEASE_VERSION, isReleaseLevel, parseGitLogOutput, predictNextVersion, type AnalyzeCommits, type ReleaseRule } from './predict-next-version';
 import { loadCommitAnalyzer } from './load-commit-analyzer';
 import { createTestRepo, type TestRepo } from './test-repo';
 
@@ -121,12 +121,38 @@ describe('predictNextVersion', () => {
     await expect(predictNextVersion(repo.root, COMMIT_TYPE_RULES, analyzeCommits)).resolves.toBeUndefined();
   });
 
-  it('uses a caller-supplied tagName function to find the last release, matching resolveBuildIdentity', async () => {
+  it('uses a caller-supplied tag template to find the last release, matching resolveBuildIdentity', async () => {
     repo = createTestRepo({ name: 'fixture', version: '2.0.0' });
     repo.tag('release-2.0.0');
     repo.commit('feat: add a thing');
 
-    await expect(predictNextVersion(repo.root, COMMIT_TYPE_RULES, analyzeCommits, { tagName: (version) => `release-${version}` })).resolves.toBe('2.1.0');
+    await expect(predictNextVersion(repo.root, COMMIT_TYPE_RULES, analyzeCommits, { tagTemplate: 'release-{version}' })).resolves.toBe('2.1.0');
+  });
+
+  it('predicts from the newest release tag when package.json still holds an older version, as it does once releases stop committing a version bump', async () => {
+    repo = createTestRepo({ name: 'fixture', version: '1.4.0' });
+    repo.tag('v1.4.0');
+    repo.commit('feat: first feature');
+    repo.tag('v1.5.0');
+    repo.commit('fix: correct the feature');
+
+    await expect(predictNextVersion(repo.root, COMMIT_TYPE_RULES, analyzeCommits)).resolves.toBe('1.5.1');
+  });
+
+  it('analyses only the commits since the newest release tag, not since the one package.json names', async () => {
+    repo = createTestRepo({ name: 'fixture', version: '1.4.0' });
+    repo.tag('v1.4.0');
+    repo.commit('feat: released in 1.5.0');
+    repo.tag('v1.5.0');
+
+    await expect(predictNextVersion(repo.root, COMMIT_TYPE_RULES, analyzeCommits)).resolves.toBeUndefined();
+  });
+
+  it('predicts the first release from the whole history when no release tag exists yet', async () => {
+    repo = createTestRepo();
+    repo.commit('feat: the first feature');
+
+    await expect(predictNextVersion(repo.root, COMMIT_TYPE_RULES, analyzeCommits)).resolves.toBe(FIRST_RELEASE_VERSION);
   });
 
   it('routes commit-analyzer narration through a caller-supplied logger', async () => {
@@ -165,12 +191,5 @@ describe('predictNextVersion', () => {
     const noopAnalyzeCommits: AnalyzeCommits = async () => Promise.resolve(undefined);
 
     await expect(predictNextVersion(repo.root, COMMIT_TYPE_RULES, noopAnalyzeCommits)).resolves.toBeUndefined();
-  });
-
-  it('throws rather than defaulting when package.json has no version field', async () => {
-    repo = createTestRepo({ name: 'fixture' });
-    const { root } = repo;
-
-    await expect(predictNextVersion(root, COMMIT_TYPE_RULES, analyzeCommits)).rejects.toThrow(/version/);
   });
 });
