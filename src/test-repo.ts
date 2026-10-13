@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { gitEnvironment } from './git';
 
 /** A disposable git working tree used only by this package's own tests. */
 export interface TestRepo {
@@ -20,7 +21,8 @@ function git(root: string, args: readonly string[], env?: Record<string, string>
   return execFileSync('git', args, {
     cwd: root,
     encoding: 'utf8',
-    ...(env ? { env: { ...process.env, ...env } } : {}),
+    // gitEnvironment, so a suite launched from a git hook (which exports GIT_DIR and friends for the repository being committed or pushed) builds its fixtures here rather than in that outer repository.
+    env: { ...gitEnvironment(), ...env },
   }).trim();
 }
 

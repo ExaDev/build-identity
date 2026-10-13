@@ -1,4 +1,5 @@
 import { execFileSync } from 'node:child_process';
+import { gitEnvironment } from './git';
 import { DEFAULT_TAG_TEMPLATE, findLastRelease } from './release-tags';
 
 /** The version semantic-release gives a repository's first release, whatever the commits since the start of its history call for. */
@@ -28,7 +29,7 @@ export function parseGitLogOutput(raw: string): RawCommit[] {
 /** The commits HEAD has that `sinceTag` does not, or every commit in HEAD's history when there is no earlier release to start from. */
 function readCommitsSince(repoRoot: string, sinceTag: string | undefined): RawCommit[] {
   const range = sinceTag === undefined ? 'HEAD' : `${sinceTag}..HEAD`;
-  const raw = execFileSync('git', ['log', range, `--format=${GIT_FORMAT}`], { cwd: repoRoot, encoding: 'utf-8' });
+  const raw = execFileSync('git', ['log', range, `--format=${GIT_FORMAT}`], { cwd: repoRoot, encoding: 'utf-8', env: gitEnvironment() });
   return parseGitLogOutput(raw);
 }
 

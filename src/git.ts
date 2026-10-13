@@ -7,8 +7,18 @@ export interface HeadCommit {
   readonly date: string;
 }
 
+/** The variables through which git lets its environment override which repository, work tree and index a command acts on, whatever its working directory. */
+const REPOSITORY_OVERRIDE_VARIABLES = new Set(['GIT_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE']);
+
+/**
+ * This process's environment without git's repository-override variables. Every function here takes the repository as `repoRoot` and runs git with that as its working directory; a git hook exports `GIT_DIR`, `GIT_WORK_TREE` and `GIT_INDEX_FILE` for the repository it fired in, and with those inherited git would silently inspect that repository instead of `repoRoot`.
+ */
+export function gitEnvironment(): NodeJS.ProcessEnv {
+  return Object.fromEntries(Object.entries(process.env).filter(([name]) => !REPOSITORY_OVERRIDE_VARIABLES.has(name)));
+}
+
 function runGit(repoRoot: string, args: readonly string[]): string {
-  return execFileSync('git', args, { cwd: repoRoot, encoding: 'utf8' }).trim();
+  return execFileSync('git', args, { cwd: repoRoot, encoding: 'utf8', env: gitEnvironment() }).trim();
 }
 
 /**
