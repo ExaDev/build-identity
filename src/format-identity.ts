@@ -42,7 +42,7 @@ export function formatIdentity(identity: DisplayIdentity, options: FormatIdentit
 
   return IDENTITY_FIELDS.map((field) => {
     const value = identity[field];
-    // A newline inside a value would silently swallow the rest of the identity into one variable, or inject an arbitrary further variable, once appended to $GITHUB_ENV. None of git's own output can contain one, but `version` on a release build comes from package.json, which is only ever checked for being a non-empty string -- so this is a real corruption the CLI refuses to emit rather than a hypothetical one.
+    // A newline inside a value would silently swallow the rest of the identity into one variable, or inject an arbitrary further variable, once appended to $GITHUB_ENV. Nothing this CLI resolves can carry one (a release version is read out of a tag name, in which git forbids control characters, and every other field is a commit hash, a date or a URL built from a whitespace-free slug), but this function formats any `DisplayIdentity` it is handed, and a corrupt line would fail silently in whatever reads it, so it refuses one outright.
     if (/[\r\n]/.test(value)) {
       throw new Error(`${field} contains a line break, which cannot be represented as a KEY=VALUE line: ${JSON.stringify(value)}`);
     }
