@@ -1,4 +1,3 @@
-import { execFileSync } from 'node:child_process';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -23,7 +22,7 @@ describe('resolveBuildIdentity', () => {
   it('returns a release identity when v<version> tags HEAD exactly', () => {
     repo = createTestRepo({ name: 'fixture', version: '1.4.0' });
     repo.tag('v1.4.0');
-    const fullSha = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repo.root, encoding: 'utf8' }).trim();
+    const fullSha = repo.git('rev-parse', 'HEAD');
     const identity = resolveBuildIdentity(repo.root, 'exadev/example');
     expect(identity.kind).toBe('release');
     expect(identity.version).toBe('1.4.0');
@@ -59,7 +58,7 @@ describe('resolveBuildIdentity', () => {
 
   it('links to the full commit SHA while displaying the short SHA as the version', () => {
     repo = createTestRepo({ name: 'fixture', version: '1.0.0' });
-    const fullSha = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repo.root, encoding: 'utf8' }).trim();
+    const fullSha = repo.git('rev-parse', 'HEAD');
 
     const identity = resolveBuildIdentity(repo.root, 'exadev/example');
 
