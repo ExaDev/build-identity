@@ -2,8 +2,8 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
-import { getHeadCommit, listTagsMergedIntoHead, tagPointsAtHead } from './git';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { getHeadCommit, gitEnvironment, listTagsMergedIntoHead, tagPointsAtHead } from './git';
 import { createTestRepo, type TestRepo } from './test-repo';
 
 describe('getHeadCommit', () => {
@@ -104,5 +104,39 @@ describe('listTagsMergedIntoHead', () => {
     repo.commit();
     repo.tag('v1.1.0');
     expect([...listTagsMergedIntoHead(repo.root)].sort()).toEqual(['v1.0.0', 'v1.1.0']);
+  });
+});
+
+describe('gitEnvironment', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it('drops the variables a git hook exports for its own repository, keeping the rest of the environment', () => {
+    vi.stubEnv('GIT_DIR', '/elsewhere/.git');
+    vi.stubEnv('GIT_WORK_TREE', '/elsewhere');
+    vi.stubEnv('GIT_INDEX_FILE', '/elsewhere/.git/index');
+    vi.stubEnv('BUILD_IDENTITY_TEST_MARKER', 'kept');
+    const environment = gitEnvironment();
+    expect(environment).toMatchObject({ BUILD_IDENTITY_TEST_MARKER: 'kept' });
+    for (const name of ['GIT_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE']) {
+      expect(environment).not.toHaveProperty(name);
+    }
+  });
+
+  it('keeps every git call on repoRoot even when a hook has pointed GIT_DIR at another repository', () => {
+    const inspected = createTestRepo();
+    const other = createTestRepo();
+    try {
+      other.commit();
+      // Read before GIT_DIR is set, so the expectation cannot itself be redirected to the other repository.
+      const inspectedHead = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: inspected.root, encoding: 'utf8', env: gitEnvironment() }).trim();
+      expect(execFileSync('git', ['rev-parse', 'HEAD'], { cwd: other.root, encoding: 'utf8', env: gitEnvironment() }).trim()).not.toBe(inspectedHead);
+      vi.stubEnv('GIT_DIR', join(other.root, '.git'));
+      expect(getHeadCommit(inspected.root).fullSha).toBe(inspectedHead);
+    } finally {
+      inspected.cleanup();
+      other.cleanup();
+    }
   });
 });
