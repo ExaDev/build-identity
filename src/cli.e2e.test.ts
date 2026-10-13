@@ -53,7 +53,7 @@ describe('build-identity CLI, as actually built and executed', () => {
 
   it('prints a commit identity as JSON on stdout, and nothing on stderr', () => {
     repo = createTestRepo({ name: 'fixture', version: '1.4.0' });
-    const headSha = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repo.root, encoding: 'utf8' }).trim();
+    const headSha = repo.git('rev-parse', 'HEAD');
 
     const result = runCli('--repo', 'exadev/example', '--root', repo.root);
 
