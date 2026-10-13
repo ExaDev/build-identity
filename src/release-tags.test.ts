@@ -37,6 +37,10 @@ describe('compareReleaseVersions', () => {
     expect(compareReleaseVersions('1.4.1', '1.4.0')).toBeGreaterThan(0);
     expect(compareReleaseVersions('1.4.0', '1.4.0')).toBe(0);
   });
+
+  it('throws for a version that is not a plain major.minor.patch', () => {
+    expect(() => compareReleaseVersions('1.4', '1.4.0')).toThrow(/major\.minor\.patch/);
+  });
 });
 
 describe('findLastRelease', () => {

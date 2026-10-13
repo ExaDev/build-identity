@@ -27,7 +27,9 @@ export function assertTagTemplate(template: string): void {
 /** The release version `tagName` marks under `template`, or `undefined` when the tag is not a release tag in that template (a different prefix, a prerelease, not a version at all). */
 export function parseReleaseTag(template: string, tagName: string): string | undefined {
   assertTagTemplate(template);
-  const [prefix = '', suffix = ''] = template.split(VERSION_PLACEHOLDER);
+  const placeholderAt = template.indexOf(VERSION_PLACEHOLDER);
+  const prefix = template.slice(0, placeholderAt);
+  const suffix = template.slice(placeholderAt + VERSION_PLACEHOLDER.length);
   if (tagName.length < prefix.length + suffix.length || !tagName.startsWith(prefix) || !tagName.endsWith(suffix)) {
     return undefined;
   }
@@ -35,15 +37,19 @@ export function parseReleaseTag(template: string, tagName: string): string | und
   return RELEASE_VERSION_PATTERN.test(version) ? version : undefined;
 }
 
-/** Orders two release versions by semver precedence: negative when `a` is lower, positive when higher, zero when equal. Both must match the release version pattern. */
-export function compareReleaseVersions(a: string, b: string): number {
-  const left = a.split('.').map(Number);
-  const right = b.split('.').map(Number);
-  for (let index = 0; index < left.length; index += 1) {
-    const difference = (left[index] ?? 0) - (right[index] ?? 0);
-    if (difference !== 0) return difference;
+function releaseVersionParts(version: string): readonly [number, number, number] {
+  const [, major, minor, patch] = RELEASE_VERSION_PATTERN.exec(version) ?? [];
+  if (major === undefined || minor === undefined || patch === undefined) {
+    throw new Error(`not a plain major.minor.patch release version: ${JSON.stringify(version)}`);
   }
-  return 0;
+  return [Number(major), Number(minor), Number(patch)];
+}
+
+/** Orders two release versions by semver precedence: negative when `a` is lower, positive when higher, zero when equal. Throws when either is not a plain `major.minor.patch` release version. */
+export function compareReleaseVersions(a: string, b: string): number {
+  const [leftMajor, leftMinor, leftPatch] = releaseVersionParts(a);
+  const [rightMajor, rightMinor, rightPatch] = releaseVersionParts(b);
+  return leftMajor - rightMajor || leftMinor - rightMinor || leftPatch - rightPatch;
 }
 
 /** The highest release among `tagNames` under `template`, by semver precedence rather than list or creation order, ignoring every tag that is not a release in that template. */
