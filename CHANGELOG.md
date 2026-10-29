@@ -1,5 +1,9 @@
 ## [3.0.1](https://github.com/ExaDev/build-identity/compare/v3.0.0...v3.0.1) (2026-10-29)
 
+### Documentation
+
+* give the npm trust command the workflow file name, not its path ([f88f8d8](https://github.com/ExaDev/build-identity/commit/f88f8d83dfdf045a8ed3722bc770bd97e50db35c))
+
 # [3.0.0](https://github.com/ExaDev/build-identity/compare/v2.2.3...v3.0.0) (2026-10-13)
 
 
@@ -23,9 +27,32 @@ gives the last released version from tags instead.
 
 ## [2.2.3](https://github.com/ExaDev/build-identity/compare/v2.2.2...v2.2.3) (2026-10-06)
 
+### Chores
+
+* upgrade turbo to 2.11.5 and disable agentGuidance ([5c4c950](https://github.com/ExaDev/build-identity/commit/5c4c950bd2488ca0fdbf8d4e669ea69ebe76f17d))
+
 ## [2.2.2](https://github.com/ExaDev/build-identity/compare/v2.2.1...v2.2.2) (2026-10-02)
 
+### Documentation
+
+* add live usage charts to the readme ([22e5d8c](https://github.com/ExaDev/build-identity/commit/22e5d8c5d78b888d505a3bcbbd1ea87a4e990a1c))
+
 ## [2.2.1](https://github.com/ExaDev/build-identity/compare/v2.2.0...v2.2.1) (2026-09-14)
+
+### Documentation
+
+* add the required hyphen to resolveBuildIdentity's [@param](https://github.com/param) tags ([742f066](https://github.com/ExaDev/build-identity/commit/742f066779a2893261d49d9af43b3463ac025806))
+* escape the arrow's greater-than in tagName's doc comment ([b47f10d](https://github.com/ExaDev/build-identity/commit/b47f10d4d6d551336fd60cf4eb588f7210fd6e1e))
+* quote @semantic-release/commit-analyzer and hyphenate predictNextVersion's [@param](https://github.com/param) tags ([1589dac](https://github.com/ExaDev/build-identity/commit/1589dac7fdc3f8588a6fff4ff6becc59ae8940ea))
+
+### Build System
+
+* **deps:** bump @exadev/eslint-config to exact 2.12.1 ([fcab8b0](https://github.com/ExaDev/build-identity/commit/fcab8b08e1fef7f0216d498c0cd9a69709d5b167))
+
+### Chores
+
+* bump the pinned package manager from pnpm 11.6.0 to 12.4.1 ([9ebe591](https://github.com/ExaDev/build-identity/commit/9ebe5913cb608b1f858b38ad78f40d122606edca))
+* default future installs to exact versions, exempt eslint-config from the release-age gate ([c1f6440](https://github.com/ExaDev/build-identity/commit/c1f6440457c6fb9c223b932ecdca6ab35d9318db))
 
 # [2.2.0](https://github.com/ExaDev/build-identity/compare/v2.1.0...v2.2.0) (2026-09-08)
 
