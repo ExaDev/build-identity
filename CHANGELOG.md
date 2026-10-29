@@ -1,3 +1,13 @@
+## [3.0.2](https://github.com/ExaDev/build-identity/compare/v3.0.1...v3.0.2) (2026-10-29)
+
+### Bug Fixes
+
+* list every commit type in the release notes ([58112ba](https://github.com/ExaDev/build-identity/commit/58112ba5e3c9f65d9c8f2107ce19c2b031c3c677))
+
+### Documentation
+
+* list the commits behind each release that had an empty changelog entry ([f469aec](https://github.com/ExaDev/build-identity/commit/f469aecd0759eb3cea08793ba71597d5e2352fde))
+
 ## [3.0.1](https://github.com/ExaDev/build-identity/compare/v3.0.0...v3.0.1) (2026-10-29)
 
 ### Documentation
