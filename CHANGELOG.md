@@ -1,3 +1,9 @@
+## [3.1.0](https://github.com/ExaDev/build-identity/compare/v3.0.2...v3.1.0) (2026-10-30)
+
+### Features
+
+* accept a scope in the release rules ([46f5a64](https://github.com/ExaDev/build-identity/commit/46f5a6483155101b6d8d004362e6ad768198cb55))
+
 ## [3.0.2](https://github.com/ExaDev/build-identity/compare/v3.0.1...v3.0.2) (2026-10-29)
 
 ### Bug Fixes
