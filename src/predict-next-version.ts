@@ -35,8 +35,11 @@ export function isReleaseLevel(value: unknown): value is ReleaseLevel {
   return value === 'major' || value === 'minor' || value === 'patch';
 }
 
-/** One `@semantic-release/commit-analyzer` release rule -- either `{ type, release }` (a conventional-commit type, e.g. `"feat"`) or `{ breaking: true, release }` (any commit whose footer/body declares a breaking change, regardless of type). `release` also accepts `false`, commit-analyzer's own way to say "this type never triggers a release" -- needed to override a broader rule or preset default, distinct from simply omitting the type (which instead falls through to whatever the preset's own default is). This package hardcodes no rules of its own: a repo's commit-type-to-release-level convention is real, repo-specific configuration. */
-export type ReleaseRule = { readonly type: string; readonly release: ReleaseLevel | false } | { readonly breaking: true; readonly release: ReleaseLevel | false };
+/** One `@semantic-release/commit-analyzer` release rule -- `{ type, release }` (a conventional-commit type, e.g. `"feat"`), `{ scope, release }` (a conventional-commit scope, e.g. `"site"`, whatever the type) or `{ breaking: true, release }` (any commit whose footer/body declares a breaking change, regardless of type). `release` also accepts `false`, commit-analyzer's own way to say "this type never triggers a release" -- needed to override a broader rule or preset default, distinct from simply omitting the type (which instead falls through to whatever the preset's own default is). This package hardcodes no rules of its own: a repo's commit-type-to-release-level convention is real, repo-specific configuration. */
+export type ReleaseRule =
+  | { readonly type: string; readonly release: ReleaseLevel | false }
+  | { readonly scope: string; readonly release: ReleaseLevel | false }
+  | { readonly breaking: true; readonly release: ReleaseLevel | false };
 
 /**
  * The shape of `@semantic-release/commit-analyzer`'s own `analyzeCommits` plugin hook -- untyped and undocumented as a standalone export (it exists only because semantic-release's own core loads plugins dynamically), so this package can promise no more about it than "callable with these two arguments, returns a promise." `predictNextVersion` takes an implementation of this type as a parameter, rather than loading `@semantic-release/commit-analyzer` itself, so it stays a pure function of its own arguments -- trivially testable with a fake analyzer, exactly how this file's own tests exercise it. `./load-commit-analyzer`'s `loadCommitAnalyzer` is the tested, correct way to obtain a real one; pass its result straight through when you don't need a different implementation.

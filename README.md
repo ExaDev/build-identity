@@ -81,7 +81,10 @@ const identity = resolvePredictedIdentity(build, predictedVersion);
 
 ```ts
 type ReleaseLevel = 'major' | 'minor' | 'patch';
-type ReleaseRule = { type: string; release: ReleaseLevel | false } | { breaking: true; release: ReleaseLevel | false };
+type ReleaseRule =
+  | { type: string; release: ReleaseLevel | false }
+  | { scope: string; release: ReleaseLevel | false }
+  | { breaking: true; release: ReleaseLevel | false };
 type AnalyzeCommits = (pluginConfig: unknown, context: unknown) => Promise<unknown>;
 
 function predictNextVersion(repoRoot: string, releaseRules: readonly ReleaseRule[], analyzeCommits: AnalyzeCommits, options?: PredictNextVersionOptions): Promise<string | undefined>;

@@ -6,6 +6,8 @@ describe('isReleaseRule', () => {
     { type: 'feat', release: 'minor' },
     { type: 'fix', release: 'patch' },
     { type: 'chore', release: false },
+    { scope: 'site', release: false },
+    { scope: 'docs', release: 'patch' },
     { breaking: true, release: 'major' },
   ])('accepts %j', (value) => {
     expect(isReleaseRule(value)).toBe(true);
@@ -24,6 +26,9 @@ describe('isReleaseRule', () => {
     { type: '', release: 'minor' },
     { type: 42, release: 'minor' },
     { breaking: false, release: 'major' },
+    { scope: '', release: false },
+    { scope: 42, release: false },
+    { scope: 'site' },
   ])('rejects %j', (value) => {
     expect(isReleaseRule(value)).toBe(false);
   });

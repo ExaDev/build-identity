@@ -121,6 +121,23 @@ describe('predictNextVersion', () => {
     await expect(predictNextVersion(repo.root, COMMIT_TYPE_RULES, analyzeCommits)).resolves.toBeUndefined();
   });
 
+  it('returns undefined when every commit since the last tag is in a scope the rules exclude, even though its type releases', async () => {
+    repo = createTestRepo({ name: 'fixture', version: '1.4.0' });
+    repo.tag('v1.4.0');
+    repo.commit('feat(site): change the explorer');
+
+    await expect(predictNextVersion(repo.root, [...COMMIT_TYPE_RULES, { scope: 'site', release: false }], analyzeCommits)).resolves.toBeUndefined();
+  });
+
+  it('still predicts from a commit outside the excluded scope', async () => {
+    repo = createTestRepo({ name: 'fixture', version: '1.4.0' });
+    repo.tag('v1.4.0');
+    repo.commit('feat(site): change the explorer');
+    repo.commit('fix(core): correct a thing');
+
+    await expect(predictNextVersion(repo.root, [...COMMIT_TYPE_RULES, { scope: 'site', release: false }], analyzeCommits)).resolves.toBe('1.4.1');
+  });
+
   it('uses a caller-supplied tag template to find the last release, matching resolveBuildIdentity', async () => {
     repo = createTestRepo({ name: 'fixture', version: '2.0.0' });
     repo.tag('release-2.0.0');
