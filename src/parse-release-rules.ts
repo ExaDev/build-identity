@@ -18,6 +18,9 @@ export function isReleaseRule(value: unknown): value is ReleaseRule {
   if ('breaking' in value) {
     return value.breaking === true;
   }
+  if ('scope' in value) {
+    return typeof value.scope === 'string' && value.scope.length > 0;
+  }
   if (!('type' in value)) {
     return false;
   }
@@ -44,7 +47,7 @@ export function parseReleaseRules(raw: string, source: string): ReleaseRule[] {
   const rules: ReleaseRule[] = [];
   for (const [index, entry] of parsed.entries()) {
     if (!isReleaseRule(entry)) {
-      throw new Error(`${source}: entry ${String(index)} must be {"type":<string>,"release":"major"|"minor"|"patch"|false} or {"breaking":true,"release":"major"|"minor"|"patch"|false}, got: ${JSON.stringify(entry)}`);
+      throw new Error(`${source}: entry ${String(index)} must be {"type":<string>,"release":"major"|"minor"|"patch"|false}, {"scope":<string>,"release":"major"|"minor"|"patch"|false} or {"breaking":true,"release":"major"|"minor"|"patch"|false}, got: ${JSON.stringify(entry)}`);
     }
     rules.push(entry);
   }
